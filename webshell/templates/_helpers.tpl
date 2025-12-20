@@ -1,0 +1,101 @@
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "webshell.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "webshell.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "webshell.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels
+*/}}
+{{- define "webshell.labels" -}}
+helm.sh/chart: {{ include "webshell.chart" . }}
+{{ include "webshell.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels
+*/}}
+{{- define "webshell.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "webshell.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "webshell.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "webshell.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Network policy name
+*/}}
+{{- define "webshell.networkpolicy.name" -}}
+{{ include "webshell.fullname" . }}-deny-all
+{{- end }}
+
+{{/*
+StatefulSet pod name (for RBAC and tty2web)
+*/}}
+{{- define "webshell.pod.name" -}}
+{{ include "webshell.fullname" . }}-0
+{{- end }}
+
+{{/*
+Component-specific selector labels for tty2web
+*/}}
+{{- define "webshell.tty2web.selectorLabels" -}}
+{{ include "webshell.selectorLabels" . }}
+app.kubernetes.io/component: tty2web
+{{- end }}
+
+{{/*
+Component-specific selector labels for container
+*/}}
+{{- define "webshell.container.selectorLabels" -}}
+{{ include "webshell.selectorLabels" . }}
+app.kubernetes.io/component: container
+{{- end }}
+
+{{/*
+Validate configuration
+*/}}
+{{- define "webshell.validateValues" -}}
+{{- if and (eq .Values.tty2web.deploymentMode "deployment") (gt (.Values.replicaCount | int) 1) -}}
+{{- fail "replicaCount must be 1 when tty2web.deploymentMode is 'deployment'" -}}
+{{- end -}}
+{{- end }}

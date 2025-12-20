@@ -1,0 +1,16 @@
+{{- if and .Values.rbac.create (eq .Values.tty2web.deploymentMode "deployment") -}}
+{{- $fullName := include "webshell.fullname" . -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $fullName }}-exec
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  resourceNames: ["{{ include "webshell.pod.name" . }}"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  resourceNames: ["{{ include "webshell.pod.name" . }}"]
+  verbs: ["create"]
+{{- end }}

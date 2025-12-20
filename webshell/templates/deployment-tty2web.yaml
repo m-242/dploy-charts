@@ -1,0 +1,64 @@
+{{- if and .Values.tty2web.enabled (eq .Values.tty2web.deploymentMode "deployment") -}}
+{{- $fullName := include "webshell.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}-tty2web
+  labels:
+    {{- include "webshell.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "webshell.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "webshell.tty2web.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "webshell.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: tty2web
+          securityContext:
+            {{- toYaml .Values.tty2web.securityContext | nindent 12 }}
+          image: "{{ .Values.tty2web.repository }}:{{ .Values.tty2web.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.tty2web.pullPolicy }}
+          command:
+            - tty2web
+          args: ["--verbose", "-w", "--port", "{{ .Values.tty2web.services.port }}", "kubectl", "exec", "{{ include "webshell.pod.name" . }}", "-it", "-c", "container", "--", "/bin/bash", "-l"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.tty2web.services.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.tty2web.resources | nindent 12 }}
+      {{- with .Values.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

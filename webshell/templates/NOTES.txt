@@ -1,0 +1,28 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+{{- if .Values.tty2web.enabled }}
+
+Access your webshell:
+
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else }}
+  Run the following to forward the service port:
+
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "webshell.fullname" . }} 8080:{{ .Values.service.port }}
+
+  Then access: http://localhost:8080
+{{- end }}
+
+Deployment mode: {{ .Values.tty2web.deploymentMode }}
+{{- end }}
+
+Container: {{ .Values.container.repository }}:{{ .Values.container.tag }}
+Persistence: {{ if .Values.persistence.enabled }}enabled ({{ .Values.persistence.size }}){{ else }}disabled{{ end }}
+Network Policy: {{ if .Values.networkPolicy.enabled }}enabled{{ else }}disabled{{ end }}

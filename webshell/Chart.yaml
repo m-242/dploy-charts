@@ -1,0 +1,25 @@
+apiVersion: v2
+name: webshell
+description: A Helm chart for deploying web-accessible shell environments with network isolation
+
+maintainers:
+  - name: aydev
+    email: aydev@barbhack.fr
+
+type: application
+
+version: 1.0.0
+appVersion: "0.1.0"
+
+kubeVersion: ">=1.19.0-0"
+
+keywords:
+  - shell
+  - webshell
+  - terminal
+  - tty2web
+  - container
+
+home: https://github.com/aydev/dploy-charts
+sources:
+  - https://github.com/aydev/dploy-charts

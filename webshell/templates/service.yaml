@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "webshell.fullname" . }}
+  labels:
+    {{- include "webshell.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- if eq .Values.tty2web.deploymentMode "sidecar" }}
+    {{- include "webshell.container.selectorLabels" . | nindent 4 }}
+    {{- else }}
+    {{- include "webshell.tty2web.selectorLabels" . | nindent 4 }}
+    {{- end }}
