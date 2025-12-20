@@ -1,0 +1,32 @@
+FROM golang as builder
+
+ENV \
+    GOPATH=/go \
+    TTY2WEB_VERSION=v3.0.3
+
+RUN \
+    apt-get update -y && \
+    apt-get install -y git make && \
+    git clone https://github.com/kost/tty2web ${GOPATH}/src/tty2web && \
+    cd ${GOPATH}/src/tty2web && \
+    git checkout tags/${TTY2WEB_VERSION} && \
+    make tools && \
+    make tty2web && \
+    echo "Build done"
+
+FROM debian:bookworm-slim
+
+COPY --from=builder /go/src/tty2web/tty2web /usr/local/bin/tty2web
+RUN \
+    apt-get update -y && \
+    apt-get install -y curl ca-certificates && \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+    rm kubectl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    chmod a+x /usr/local/bin/tty2web && \
+    echo "Done"
+
+ENV DOCKER_HOST=unix:///var/run/docker.sock
+CMD ["/usr/local/bin/tty2web", "-w", "-p", "8080", "--title-format", "hack me !"]
