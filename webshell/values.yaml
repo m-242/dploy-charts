@@ -5,9 +5,10 @@
 replicaCount: 1
 
 container:
-  repository: "debian"
-  pullPolicy: IfNotPresent
-  tag: "bookworm"
+  image:
+    repository: debian
+    tag: bookworm
+    pullPolicy: IfNotPresent
 
   securityContext:
     capabilities:

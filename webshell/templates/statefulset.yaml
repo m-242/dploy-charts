@@ -46,8 +46,8 @@ spec:
         - name: container
           securityContext:
             {{- toYaml .Values.container.securityContext | nindent 12 }}
-          image: "{{ .Values.container.repository }}:{{ .Values.container.tag }}"
-          imagePullPolicy: {{ .Values.container.pullPolicy }}
+          image: "{{ .Values.container.image.repository }}:{{ .Values.container.image.tag }}"
+          imagePullPolicy: {{ .Values.container.image.pullPolicy }}
           command:
             - sleep
           args:
