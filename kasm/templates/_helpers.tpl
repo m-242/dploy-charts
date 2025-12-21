@@ -68,9 +68,10 @@ Generate VNC password - use provided or generate random
 
 {{/*
 Generate base64-encoded basic auth credentials for auto-injection
+Uses Kasm VNC credentials (kasm.user:vncPassword)
 */}}
 {{- define "kasm-kali.basicAuthHeader" -}}
-{{- $username := .Values.username | default .Values.kasm.user -}}
-{{- $password := .Values.uuid | default (include "kasm-kali.vncPassword" .) -}}
+{{- $username := .Values.kasm.user -}}
+{{- $password := include "kasm-kali.vncPassword" . -}}
 {{- printf "%s:%s" $username $password | b64enc -}}
 {{- end }}
