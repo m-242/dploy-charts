@@ -1,0 +1,143 @@
+{{- $fullName := include "kasm-kali.fullname" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $fullName }}
+  labels:
+    {{- include "kasm-kali.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "kasm-kali.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- if .Values.networkPolicy.enabled }}
+        network: kasm-kali
+        {{- end }}
+        {{- include "kasm-kali.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "kasm-kali.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        {{- if .Values.authProxy.enabled }}
+        - name: auth-proxy
+          image: "{{ .Values.authProxy.repository }}:{{ .Values.authProxy.tag }}"
+          imagePullPolicy: {{ .Values.authProxy.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.authProxy.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: auth-proxy-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+              readOnly: true
+            - name: nginx-tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+          resources:
+            {{- toYaml .Values.authProxy.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+        {{- end }}
+        - name: kasm
+          image: "{{ .Values.container.image.repository }}:{{ .Values.container.image.tag }}"
+          imagePullPolicy: {{ .Values.container.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.container.securityContext | nindent 12 }}
+          env:
+            - name: VNC_PW
+              value: {{ include "kasm-kali.vncPassword" . | quote }}
+            - name: KASM_USER
+              value: {{ .Values.kasm.user | quote }}
+            - name: AUDIO_ENABLED
+              value: "true"
+            - name: VNC_RESOLUTION
+              value: {{ .Values.kasm.resolution | quote }}
+            {{- if .Values.username }}
+            - name: DPLOY_USERNAME
+              value: {{ .Values.username | quote }}
+            {{- end }}
+            {{- if .Values.uuid }}
+            - name: DPLOY_UUID
+              value: {{ .Values.uuid | quote }}
+            {{- end }}
+          ports:
+            - name: vnc
+              containerPort: 6901
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: vnc
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: vnc
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.container.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+            {{- end }}
+            {{- with .Values.volumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.authProxy.enabled }}
+        - name: auth-proxy-config
+          configMap:
+            name: {{ $fullName }}-auth-proxy
+        - name: nginx-tmp
+          emptyDir: {}
+        - name: nginx-cache
+          emptyDir: {}
+        {{- end }}
+        {{- if .Values.persistence.enabled }}
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ $fullName }}-data
+        {{- end }}
+        {{- with .Values.volumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

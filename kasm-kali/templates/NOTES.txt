@@ -1,0 +1,3 @@
+Kasm Kali Linux Desktop deployed!
+
+Access: https://{{ .Values.ingressHost }}

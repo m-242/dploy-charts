@@ -1,0 +1,27 @@
+apiVersion: v2
+name: kasm-kali
+description: A Helm chart for deploying KASM Kali Linux desktop environment
+
+maintainers:
+  - name: aydev
+    email: aydev@barbhack.fr
+
+type: application
+
+version: 1.0.0
+appVersion: "1.15.0"
+
+kubeVersion: ">=1.19.0-0"
+
+keywords:
+  - kasm
+  - kali
+  - desktop
+  - vnc
+  - security
+  - pentesting
+
+home: https://github.com/aydev/dploy-charts
+sources:
+  - https://github.com/aydev/dploy-charts
+  - https://github.com/kasmtech/workspaces-images

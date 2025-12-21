@@ -1,0 +1,125 @@
+FROM debian:bookworm
+
+LABEL maintainer="devops" \
+      description="DevOps toolkit with kubectl, k9s, terraform, go, rust, networking tools, and more"
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    GO_VERSION=1.22.5 \
+    TERRAFORM_VERSION=1.9.2 \
+    KUBECTL_VERSION=1.30.2 \
+    K9S_VERSION=0.32.5 \
+    STERN_VERSION=1.30.0 \
+    KUBECTX_VERSION=0.9.5
+
+# Base packages + networking tools + Python
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Essentials
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    gnupg \
+    unzip \
+    jq \
+    yq \
+    vim \
+    htop \
+    tree \
+    make \
+    build-essential \
+    openssh-client \
+    bash-completion \
+    # Python
+    python3 \
+    python3-pip \
+    python3-venv \
+    python3-dev \
+    # Networking tools
+    tcpdump \
+    net-tools \
+    iproute2 \
+    iputils-ping \
+    iputils-tracepath \
+    dnsutils \
+    bind9-host \
+    netcat-openbsd \
+    nmap \
+    traceroute \
+    mtr-tiny \
+    iftop \
+    iperf3 \
+    socat \
+    telnet \
+    whois \
+    arping \
+    bridge-utils \
+    ethtool \
+    tcpflow \
+    tshark \
+    ngrep \
+    httpie \
+    rsync \
+    openssh-server \
+    sshpass \
+    # SSL/TLS
+    openssl \
+    gnutls-bin \
+    # Misc useful
+    strace \
+    lsof \
+    procps \
+    psmisc \
+    file \
+    less \
+    && rm -rf /var/lib/apt/lists/*
+
+# s3cmd
+RUN pip3 install --break-system-packages s3cmd
+
+# Go
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
+    && ln -s /usr/local/go/bin/go /usr/local/bin/go \
+    && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+
+# Rust & Cargo
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# kubectl
+RUN curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl \
+    && chmod +x /usr/local/bin/kubectl
+
+# kubens & kubectx
+RUN curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubectx_v${KUBECTX_VERSION}_linux_x86_64.tar.gz" | tar -xzf - -C /usr/local/bin kubectx \
+    && curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubens_v${KUBECTX_VERSION}_linux_x86_64.tar.gz" | tar -xzf - -C /usr/local/bin kubens
+
+# k9s
+RUN curl -fsSL "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_amd64.tar.gz" | tar -xzf - -C /usr/local/bin k9s
+
+# stern
+RUN curl -fsSL "https://github.com/stern/stern/releases/download/v${STERN_VERSION}/stern_${STERN_VERSION}_linux_amd64.tar.gz" | tar -xzf - -C /usr/local/bin stern
+
+# Terraform
+RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip \
+    && unzip /tmp/terraform.zip -d /usr/local/bin \
+    && rm /tmp/terraform.zip
+
+# Helm
+RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+# Bash completion for kubectl
+RUN kubectl completion bash > /etc/bash_completion.d/kubectl
+
+# Aliases
+RUN echo 'alias k=kubectl' >> /root/.bashrc \
+    && echo 'alias tf=terraform' >> /root/.bashrc \
+    && echo 'alias kns=kubens' >> /root/.bashrc \
+    && echo 'alias kctx=kubectx' >> /root/.bashrc \
+    && echo 'alias ll="ls -la"' >> /root/.bashrc \
+    && echo 'alias ports="netstat -tulanp"' >> /root/.bashrc \
+    && echo 'alias listen="lsof -i -P -n | grep LISTEN"' >> /root/.bashrc \
+    && echo 'complete -F __start_kubectl k' >> /root/.bashrc
+
+WORKDIR /workspace
+
+CMD ["/bin/bash"]
