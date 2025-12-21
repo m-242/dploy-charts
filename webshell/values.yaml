@@ -26,10 +26,8 @@ container:
 
   resources:
     requests:
-      cpu: "64m"
       memory: "256Mi"
     limits:
-      cpu: "100m"
       memory: "512Mi"
 
 tty2web:
@@ -46,10 +44,8 @@ tty2web:
 
   resources:
     requests:
-      cpu: "64m"
       memory: "64Mi"
     limits:
-      cpu: "100m"
       memory: "256Mi"
 
   securityContext:
