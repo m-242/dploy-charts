@@ -49,8 +49,8 @@ tty2web:
       cpu: "64m"
       memory: "64Mi"
     limits:
-      cpu: "80m"
-      memory: "96Mi"
+      cpu: "100m"
+      memory: "256Mi"
 
   securityContext:
     capabilities:
