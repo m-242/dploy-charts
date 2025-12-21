@@ -66,10 +66,10 @@ spec:
             periodSeconds: 5
         {{- end }}
         - name: kasm
-          image: "{{ .Values.container.image.repository }}:{{ .Values.container.image.tag }}"
-          imagePullPolicy: {{ .Values.container.image.pullPolicy }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
-            {{- toYaml .Values.container.securityContext | nindent 12 }}
+            {{- toYaml .Values.securityContext | nindent 12 }}
           env:
             - name: VNC_PW
               value: {{ include "kasm-kali.vncPassword" . | quote }}
@@ -102,7 +102,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 5
           resources:
-            {{- toYaml .Values.container.resources | nindent 12 }}
+            {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
             {{- if .Values.persistence.enabled }}
             - name: data
