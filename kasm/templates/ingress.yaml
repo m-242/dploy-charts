@@ -33,6 +33,7 @@ spec:
     {{- end }}
   {{- end }}
   rules:
+    {{- if .Values.ingressHost }}
     - host: {{ .Values.ingressHost | quote }}
       http:
         paths:
@@ -43,4 +44,20 @@ spec:
                 name: {{ $fullName }}
                 port:
                   number: {{ $svcPort }}
+    {{- else }}
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ $fullName }}
+                port:
+                  number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+    {{- end }}
 {{- end }}
