@@ -1,0 +1,47 @@
+VS Code (code-server) has been deployed!
+
+{{- if .Values.ingressHost }}
+
+Access your VS Code instance at:
+  https://{{ .Values.ingressHost }}
+
+{{- else if .Values.ingress.enabled }}
+
+Access your VS Code instance at:
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+
+{{- else }}
+
+Get the application URL by running these commands:
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "vscode.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+        You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "vscode.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "vscode.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:{{ .Values.service.port }}
+{{- else if contains "ClusterIP" .Values.service.type }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward service/{{ include "vscode.fullname" . }} 8080:{{ .Values.service.port }}
+  echo "Visit http://127.0.0.1:8080 to access VS Code"
+{{- end }}
+
+{{- end }}
+
+{{- if .Values.codeServer.password }}
+
+Authentication is enabled. Use the configured password to log in.
+{{- else }}
+
+Authentication is disabled. Anyone with access to the URL can use VS Code.
+{{- end }}
+
+{{- if .Values.persistence.enabled }}
+
+Persistent storage is enabled at {{ .Values.persistence.mountPath }} ({{ .Values.persistence.size }})
+{{- end }}

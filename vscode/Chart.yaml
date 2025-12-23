@@ -1,0 +1,21 @@
+apiVersion: v2
+name: vscode
+description: A Helm chart for deploying VS Code (code-server) web-based IDE
+maintainers:
+  - name: aydev
+    email: aydev@barbhack.fr
+type: application
+version: 1.0.0
+appVersion: "4.96.2"
+kubeVersion: ">=1.19.0-0"
+keywords:
+  - vscode
+  - code-server
+  - ide
+  - editor
+  - development
+  - web
+home: https://github.com/aydev/dploy-charts
+sources:
+  - https://github.com/aydev/dploy-charts
+  - https://github.com/coder/code-server

@@ -1,0 +1,93 @@
+# VS Code (code-server) Helm Chart Values
+# https://github.com/coder/code-server
+
+replicaCount: 1
+
+# Main code-server container configuration
+container:
+  image:
+    repository: codercom/code-server
+    tag: "4.96.2"
+    pullPolicy: IfNotPresent
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+    readOnlyRootFilesystem: false
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "512Mi"
+    limits:
+      cpu: "2"
+      memory: "2Gi"
+
+# code-server specific configuration
+codeServer:
+  # Password for authentication (leave empty for no password with --auth none)
+  password: ""
+  # Extra arguments to pass to code-server
+  extraArgs: []
+  # Extensions to install on startup (list of extension IDs)
+  extensions: []
+  # Default workspace folder
+  workspaceFolder: "/home/coder"
+
+# Service account configuration
+serviceAccount:
+  create: false
+  automount: false
+  annotations: {}
+  name: ""
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Persistence for workspace and settings
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  # Mount path for persistent storage (home directory)
+  mountPath: /home/coder
+  size: "5Gi"
+
+# Network policy configuration
+networkPolicy:
+  enabled: true
+  # Allow egress for extensions marketplace and git
+  allowEgress: true
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Dploy-injected values (do not modify, set by dploy-api)
+# username: ""
+# uuid: ""
+# ingressHost: ""

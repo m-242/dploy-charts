@@ -1,7 +1,7 @@
 FROM debian:bookworm
 
 LABEL maintainer="devops" \
-      description="DevOps toolkit with kubectl, k9s, terraform, go, rust, networking tools, and more"
+      description="DevOps toolkit with kubectl, k9s, terraform, go, networking tools, and more"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     GO_VERSION=1.22.5 \
@@ -10,6 +10,10 @@ ENV DEBIAN_FRONTEND=noninteractive \
     K9S_VERSION=0.32.5 \
     STERN_VERSION=1.30.0 \
     KUBECTX_VERSION=0.9.5
+
+# Detect architecture (set by buildx/podman automatically)
+ARG TARGETARCH
+ENV ARCH=${TARGETARCH:-amd64}
 
 # Base packages + networking tools + Python
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -77,30 +81,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip3 install --break-system-packages s3cmd
 
 # Go
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" | tar -C /usr/local -xzf - \
+RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${ARCH}.tar.gz" | tar -C /usr/local -xzf - \
     && ln -s /usr/local/go/bin/go /usr/local/bin/go \
     && ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
 
-# Rust & Cargo
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
-
 # kubectl
-RUN curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl" -o /usr/local/bin/kubectl \
+RUN curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl \
     && chmod +x /usr/local/bin/kubectl
 
-# kubens & kubectx
-RUN curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubectx_v${KUBECTX_VERSION}_linux_x86_64.tar.gz" | tar -xzf - -C /usr/local/bin kubectx \
-    && curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubens_v${KUBECTX_VERSION}_linux_x86_64.tar.gz" | tar -xzf - -C /usr/local/bin kubens
+# kubens & kubectx (uses x86_64 naming for amd64)
+RUN KUBECTX_ARCH=$([ "${ARCH}" = "amd64" ] && echo "x86_64" || echo "${ARCH}") \
+    && curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubectx_v${KUBECTX_VERSION}_linux_${KUBECTX_ARCH}.tar.gz" | tar -xzf - -C /usr/local/bin kubectx \
+    && curl -fsSL "https://github.com/ahmetb/kubectx/releases/download/v${KUBECTX_VERSION}/kubens_v${KUBECTX_VERSION}_linux_${KUBECTX_ARCH}.tar.gz" | tar -xzf - -C /usr/local/bin kubens
 
 # k9s
-RUN curl -fsSL "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_amd64.tar.gz" | tar -xzf - -C /usr/local/bin k9s
+RUN curl -fsSL "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_${ARCH}.tar.gz" | tar -xzf - -C /usr/local/bin k9s
 
 # stern
-RUN curl -fsSL "https://github.com/stern/stern/releases/download/v${STERN_VERSION}/stern_${STERN_VERSION}_linux_amd64.tar.gz" | tar -xzf - -C /usr/local/bin stern
+RUN curl -fsSL "https://github.com/stern/stern/releases/download/v${STERN_VERSION}/stern_${STERN_VERSION}_linux_${ARCH}.tar.gz" | tar -xzf - -C /usr/local/bin stern
 
 # Terraform
-RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip" -o /tmp/terraform.zip \
+RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_${ARCH}.zip" -o /tmp/terraform.zip \
     && unzip /tmp/terraform.zip -d /usr/local/bin \
     && rm /tmp/terraform.zip
 
