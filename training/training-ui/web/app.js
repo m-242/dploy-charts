@@ -98,7 +98,8 @@ function createTerminalTab() {
         closeTerminal(id);
     });
 
-    terminalTabs.appendChild(tab);
+    // Insert before the "+" button
+    terminalTabs.insertBefore(tab, btnAddTab);
 
     // Create terminal instance container
     const instance = document.createElement('div');

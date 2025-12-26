@@ -355,24 +355,25 @@ html, body {
 }
 
 .btn-add-tab {
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
+    padding: 0.4rem 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 36px;
 }
 
 .btn-add-tab:hover {
-    background: var(--accent-primary);
-    color: var(--bg-primary);
+    background: var(--bg-secondary);
+    color: var(--accent-primary);
 }
 
 .terminals-wrapper {
