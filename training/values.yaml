@@ -1,0 +1,250 @@
+# Training Chart Values
+# This chart provides a KillerKoda-style interactive training environment
+
+# Values injected by dploy API
+username: ""
+uuid: ""
+ingressHost: ""
+
+# Scenario configuration
+# Define your tutorial steps directly in values
+scenario:
+  name: "Git Basics"
+  description: "Learn essential Git commands for version control"
+  difficulty: beginner
+  estimatedTime: 20m
+  steps:
+    - name: "01-introduction"
+      title: "Introduction"
+      content: |
+        # Welcome to Git Basics
+
+        Git is a distributed version control system that helps you track changes in your code.
+
+        ## What You'll Learn
+
+        1. Initialize a Git repository
+        2. Stage and commit changes
+        3. Create and work with branches
+        4. Merge branches together
+
+        Let's start by checking that Git is installed:
+
+        ```bash
+        git --version
+        ```
+
+    - name: "02-init-repo"
+      title: "Initialize Repository"
+      content: |
+        # Initialize a Git Repository
+
+        Create a new directory and initialize it as a Git repository:
+
+        ```bash
+        mkdir my-project
+        cd my-project
+        git init
+        ```
+
+        Configure your identity:
+
+        ```bash
+        git config user.name "Your Name"
+        git config user.email "your@email.com"
+        ```
+      check: |
+        #!/bin/bash
+        if [ -d "/workspace/my-project/.git" ]; then
+            echo "Repository initialized successfully!"
+            exit 0
+        else
+            echo "Please create 'my-project' directory and run 'git init' inside it."
+            exit 1
+        fi
+
+    - name: "03-first-commit"
+      title: "First Commit"
+      content: |
+        # Your First Commit
+
+        1. Create a README file:
+
+        ```bash
+        cd my-project
+        echo "# My Project" > README.md
+        ```
+
+        2. Stage and commit:
+
+        ```bash
+        git add README.md
+        git commit -m "Initial commit: Add README"
+        ```
+
+        Verify with `git log --oneline`
+      check: |
+        #!/bin/bash
+        cd /workspace/my-project 2>/dev/null || exit 1
+        if git rev-list --count HEAD 2>/dev/null | grep -q "^[1-9]"; then
+            echo "First commit created!"
+            exit 0
+        else
+            echo "No commits found. Run 'git commit -m \"message\"'"
+            exit 1
+        fi
+
+    - name: "04-branching"
+      title: "Branching"
+      content: |
+        # Working with Branches
+
+        1. Create and switch to a new branch:
+
+        ```bash
+        git checkout -b feature
+        ```
+
+        2. Make a change:
+
+        ```bash
+        echo "New feature" > feature.txt
+        git add feature.txt
+        git commit -m "Add feature"
+        ```
+      check: |
+        #!/bin/bash
+        cd /workspace/my-project 2>/dev/null || exit 1
+        if git show-ref --verify --quiet refs/heads/feature; then
+            echo "Feature branch created!"
+            exit 0
+        else
+            echo "Create branch 'feature' with: git checkout -b feature"
+            exit 1
+        fi
+
+    - name: "05-merging"
+      title: "Merging"
+      content: |
+        # Merging Branches
+
+        1. Switch back to main:
+
+        ```bash
+        git checkout main
+        ```
+
+        2. Merge the feature branch:
+
+        ```bash
+        git merge feature
+        ```
+
+        Congratulations! You've learned Git basics!
+      check: |
+        #!/bin/bash
+        cd /workspace/my-project 2>/dev/null || exit 1
+        git checkout main 2>/dev/null || git checkout master 2>/dev/null
+        if git ls-files | grep -q "feature.txt"; then
+            echo "Merged successfully! Tutorial complete!"
+            exit 0
+        else
+            echo "Merge feature branch: git merge feature"
+            exit 1
+        fi
+
+# Scenario shell container configuration
+# This is the sandbox where users execute commands
+shell:
+  image:
+    repository: debian
+    tag: bookworm
+    pullPolicy: IfNotPresent
+
+  command: ["sleep"]
+  args: ["infinity"]
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - SETGID
+        - SETUID
+        - NET_RAW
+    allowPrivilegeEscalation: false
+
+# Training UI configuration
+# Serves the split-pane web interface and check API
+ui:
+  image:
+    repository: aydev/training-ui
+    tag: latest
+    pullPolicy: Always
+
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+
+  securityContext:
+    capabilities:
+      drop:
+        - ALL
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 1000
+    readOnlyRootFilesystem: true
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: ""
+  annotations: {}
+  tls: []
+
+# Persistence for shell workspace
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: "1Gi"
+  mountPath: "/workspace"
+
+# RBAC configuration
+rbac:
+  create: true
+
+# Service account
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+# Network policy
+networkPolicy:
+  enabled: false

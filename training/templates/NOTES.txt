@@ -1,0 +1,24 @@
+Training Environment Deployed!
+==============================
+
+{{- if .Values.ingress.enabled }}
+Access your training environment at:
+  https://{{ .Values.ingressHost }}/
+{{- else }}
+To access your training environment, run:
+  kubectl port-forward svc/{{ include "training.fullname" . }} 8080:{{ .Values.service.port }} -n {{ .Release.Namespace }}
+
+Then open http://localhost:8080 in your browser.
+{{- end }}
+
+Components:
+-----------
+  - Training UI: Serves instructions, terminal (xterm.js), and check API
+  - Shell: Your sandbox environment
+
+Tips:
+-----
+  - Navigate between steps using Previous/Next buttons or arrow keys
+  - Click "Check" to verify your progress on each step
+  - Use Ctrl+Enter to quickly run a check
+  - Resize the panels by dragging the divider

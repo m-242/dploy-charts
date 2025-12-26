@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "training.fullname" . }}-shell
+  labels:
+    {{- include "training.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - port: 80
+      targetPort: 80
+      protocol: TCP
+      name: dummy
+  selector:
+    {{- include "training.shell.selectorLabels" . | nindent 4 }}

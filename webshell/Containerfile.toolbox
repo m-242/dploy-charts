@@ -109,7 +109,7 @@ RUN curl -fsSL "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/te
 RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 # Bash completion for kubectl
-RUN kubectl completion bash > /etc/bash_completion.d/kubectl
+# RUN kubectl completion bash > /etc/bash_completion.d/kubectl
 
 # Aliases
 RUN echo 'alias k=kubectl' >> /root/.bashrc \

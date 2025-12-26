@@ -1,0 +1,20 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "training.fullname" . }}
+  labels:
+    {{- include "training.labels" . | nindent 4 }}
+rules:
+  # Allow kubectl exec into the shell pod (for tty2web and UI checks)
+  - apiGroups: [""]
+    resources: ["pods"]
+    resourceNames:
+      - {{ include "training.shell.podName" . | quote }}
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    resourceNames:
+      - {{ include "training.shell.podName" . | quote }}
+    verbs: ["create"]
+{{- end }}
