@@ -1,149 +1,458 @@
 # Training Chart
 
-Interactive training environment with step-by-step instructions and a web terminal. Inspired by KillerKoda/Katacoda.
+Interactive training environment with step-by-step instructions and web terminal. A self-hosted alternative to KillerKoda/Katacoda for hands-on tutorials.
+
+![Training Environment Screenshot](screenshot.png)
+
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick Start](#quick-start)
+- [Creating a Scenario](#creating-a-scenario)
+  - [Minimal Example](#minimal-example)
+  - [Step Structure](#step-structure)
+  - [Writing Check Scripts](#writing-check-scripts)
+  - [Markdown Features](#markdown-features)
+- [Customizing the Shell Container](#customizing-the-shell-container)
+  - [Using a Standard Image](#using-a-standard-image)
+  - [Building a Custom Image](#building-a-custom-image)
+  - [For Local Development (Kind)](#for-local-development-kind)
+  - [Shell Container Examples](#shell-container-examples)
+- [Configuration Reference](#configuration-reference)
+  - [Scenario Configuration](#scenario-configuration)
+  - [Shell Configuration](#shell-configuration)
+  - [UI Configuration](#ui-configuration)
+  - [Storage Configuration](#storage-configuration)
+  - [Ingress Configuration](#ingress-configuration)
+  - [Values Injected by Dploy](#values-injected-by-dploy)
+- [UI Features](#ui-features)
+  - [Multiple Terminal Tabs](#multiple-terminal-tabs)
+  - [Code Block Actions](#code-block-actions)
+  - [Resizable Panels](#resizable-panels)
+- [API Endpoints](#api-endpoints)
+- [Example Scenarios](#example-scenarios)
+- [Integration with Dploy](#integration-with-dploy)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
 ## Features
 
-- **Split-pane UI**: Instructions on the left (1/3), terminal on the right (2/3)
-- **Step verification**: Built-in "Check" button runs verification scripts
-- **ConfigMap-based scenarios**: Define tutorials in values.yaml - no image rebuild needed
-- **Resizable panels**: Drag the divider to adjust panel widths
-- **Keyboard navigation**: Use arrow keys to navigate steps
+- Split-pane interface with markdown instructions and web terminal
+- Multiple terminal tabs (same container, independent shells)
+- Step-by-step progression with optional validation checks
+- Copy/Run buttons on code blocks for quick execution
+- Syntax highlighting for code examples
+- Resizable panels
+- Persistent workspace storage
+- Customizable shell container per scenario
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Browser                                      │
-│  ┌─────────────────────┬───────────────────────────────────────────┐│
-│  │   Instructions      │           Terminal                        ││
-│  │   (1/3 width)       │           (2/3 width)                     ││
-│  │                     │                                           ││
-│  │  Step 1 of 5        │   $ git init                              ││
-│  │  ──────────────     │   Initialized empty Git repository        ││
-│  │  Initialize repo... │                                           ││
-│  │                     │                                           ││
-│  │  [Check] [Next →]   │                                           ││
-│  └─────────────────────┴───────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                        Ingress                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Training UI Pod                        │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Go Server (embedded web UI)                        │   │
+│  │  - Serves HTML/CSS/JS                               │   │
+│  │  - API: /api/scenario, /api/steps, /api/steps/check │   │
+│  │  - WebSocket: /ws/terminal                          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+         │                              │
+         │ kubectl exec                 │ Read ConfigMap
+         ▼                              ▼
+┌──────────────────────┐    ┌──────────────────────────────┐
+│    Shell Pod         │    │   Scenario ConfigMap         │
+│  (StatefulSet)       │    │  - scenario.yaml             │
+│                      │    │  - 01-intro-content.md       │
+│  Custom container    │    │  - 01-intro-check.sh         │
+│  with tools needed   │    │  - 02-step-content.md        │
+│  for the scenario    │    │  - ...                       │
+│                      │    │                              │
+│  /workspace (PVC)    │    └──────────────────────────────┘
+└──────────────────────┘
 ```
-
-### Components
-
-| Component | Description |
-|-----------|-------------|
-| **Training UI** | Generic Go server - serves web interface, reads scenarios from ConfigMap |
-| **Shell Pod** | Sandbox environment (StatefulSet) where users run commands |
-| **tty2web** | Web terminal connecting to the shell via kubectl exec |
 
 ## Quick Start
 
+### 1. Install with Helm
+
 ```bash
-helm install my-training ./training \
-  --set ingressHost=training.example.com
+# Using default Git scenario
+helm install my-training ./training
+
+# Using a custom scenario file
+helm install openssl-training ./training -f values-openssl-aes.yaml
 ```
 
-## Defining Scenarios
+### 2. Access the UI
 
-Scenarios are defined directly in `values.yaml`. Each step has:
-- `name`: Step identifier (e.g., "01-introduction")
-- `title`: Display title
-- `content`: Markdown instructions
-- `check`: Optional bash script for verification
+```bash
+# Port-forward if no ingress
+kubectl port-forward svc/my-training 8080:8080
 
-### Example
+# Open http://localhost:8080
+```
+
+## Creating a Scenario
+
+A scenario is defined entirely in a `values.yaml` file. Each scenario contains:
+- Metadata (name, description, difficulty)
+- Steps with markdown content
+- Optional validation checks
+- Shell container configuration
+
+### Minimal Example
 
 ```yaml
+# values-my-scenario.yaml
+
 scenario:
-  name: "Git Basics"
-  description: "Learn essential Git commands"
+  name: "My Tutorial"
+  description: "Learn something new"
   difficulty: beginner
-  estimatedTime: 20m
+  estimatedTime: 15m
   steps:
-    - name: "01-introduction"
+    - name: "01-intro"
       title: "Introduction"
       content: |
-        # Welcome to Git Basics
+        # Welcome
 
-        Run `git --version` to verify Git is installed.
-
-    - name: "02-init-repo"
-      title: "Initialize Repository"
-      content: |
-        # Initialize a Repository
+        This is the first step. Run this command:
 
         ```bash
-        mkdir my-project && cd my-project
-        git init
+        echo "Hello World"
+        ```
+
+    - name: "02-task"
+      title: "Your Task"
+      content: |
+        # Do Something
+
+        Create a file:
+
+        ```bash
+        echo "content" > myfile.txt
         ```
       check: |
         #!/bin/bash
-        if [ -d "/workspace/my-project/.git" ]; then
-            echo "Repository initialized!"
+        if [ -f "/workspace/myfile.txt" ]; then
+            echo "File created successfully!"
             exit 0
         else
-            echo "Run 'git init' in my-project directory"
+            echo "Please create myfile.txt"
             exit 1
         fi
+
+# Use default debian container
+shell:
+  image:
+    repository: debian
+    tag: bookworm
 ```
 
-### Check Scripts
+### Step Structure
 
-- Exit code `0` = Success (green message)
-- Exit code non-zero = Failure (red message)
-- stdout = Message shown to user
-- Scripts run in the shell pod at `/workspace`
+Each step has:
 
-## Configuration
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Unique identifier (e.g., `01-introduction`) |
+| `title` | Yes | Display title in the UI |
+| `content` | Yes | Markdown content with instructions |
+| `check` | No | Bash script to validate completion |
 
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `ingressHost` | Ingress hostname (injected by dploy) | `""` |
-| `scenario.name` | Scenario title | `"Git Basics"` |
-| `scenario.steps` | Array of step definitions | See values.yaml |
-| `shell.image.repository` | Shell container image | `debian` |
-| `shell.image.tag` | Shell container tag | `bookworm` |
-| `ui.image.repository` | Training UI image | `aydev/training-ui` |
-| `tty2web.enabled` | Enable web terminal | `true` |
-| `persistence.enabled` | Enable workspace persistence | `true` |
-| `persistence.size` | Workspace PVC size | `1Gi` |
+### Writing Check Scripts
 
-## Shell Environment
+Check scripts run inside the shell container via `kubectl exec`. They should:
+- Exit `0` on success
+- Exit `1` on failure
+- Print a helpful message explaining the result
 
-Customize the shell container for your scenario's needs:
+```yaml
+check: |
+  #!/bin/bash
+  cd /workspace/my-project 2>/dev/null || {
+      echo "Directory not found. Run: mkdir /workspace/my-project"
+      exit 1
+  }
+
+  if [ -f "config.json" ]; then
+      echo "Configuration file found!"
+      exit 0
+  else
+      echo "Missing config.json - create it with the editor"
+      exit 1
+  fi
+```
+
+### Markdown Features
+
+The content field supports GitHub-flavored markdown:
+
+```yaml
+content: |
+  # Heading 1
+  ## Heading 2
+
+  Regular paragraph with **bold** and *italic*.
+
+  - Bullet list
+  - Another item
+
+  1. Numbered list
+  2. Second item
+
+  > Blockquote for tips or warnings
+
+  Inline `code` or code blocks:
+
+  ```bash
+  kubectl get pods
+  ```
+
+  ```python
+  print("Hello")
+  ```
+```
+
+Code blocks with language hints get syntax highlighting. Bash blocks show Copy and Run buttons on hover.
+
+## Customizing the Shell Container
+
+The shell container is where users execute commands. Customize it based on your scenario's needs.
+
+### Using a Standard Image
 
 ```yaml
 shell:
   image:
-    repository: myrepo/training-python  # Custom image with Python
-    tag: latest
+    repository: debian
+    tag: bookworm
+    pullPolicy: IfNotPresent
+
+  command: ["sleep"]
+  args: ["infinity"]
 ```
 
-Example Containerfile for Python scenarios:
+### Building a Custom Image
+
+Create a `Containerfile` with the tools your scenario needs:
 
 ```dockerfile
+# Containerfile.my-scenario
 FROM debian:bookworm
-RUN apt-get update && apt-get install -y python3 python3-pip git
+
+# Install required tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    vim \
+    git \
+    jq \
+    # Add your tools here
+    python3 \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python packages if needed
+RUN pip3 install requests pyyaml
+
+# Create workspace
+RUN mkdir -p /workspace && chmod 777 /workspace
 WORKDIR /workspace
+
+# Custom prompt
+RUN echo 'export PS1="\[\e[32m\]\u@training\[\e[0m\]:\[\e[34m\]\w\[\e[0m\]\$ "' >> /etc/bash.bashrc
+
 CMD ["sleep", "infinity"]
 ```
 
-## Building the UI Image
-
-The UI image is generic and reusable:
+Build and use it:
 
 ```bash
-podman build -f Containerfile.ui -t myrepo/training-ui:latest .
-podman push myrepo/training-ui:latest
+# Build
+docker build -f Containerfile.my-scenario -t myregistry/my-training-shell:v1 .
+
+# Push to registry
+docker push myregistry/my-training-shell:v1
 ```
 
-## Keyboard Shortcuts
+```yaml
+# values-my-scenario.yaml
+shell:
+  image:
+    repository: myregistry/my-training-shell
+    tag: v1
+    pullPolicy: IfNotPresent
+```
 
-| Key | Action |
-|-----|--------|
-| `←` | Previous step |
-| `→` | Next step |
-| `Ctrl+Enter` | Run check |
+### For Local Development (Kind)
+
+```bash
+# Build locally
+docker build -f Containerfile.my-scenario -t my-training-shell:latest .
+
+# Load into Kind cluster
+kind load docker-image my-training-shell:latest --name my-cluster
+```
+
+```yaml
+shell:
+  image:
+    repository: my-training-shell
+    tag: latest
+    pullPolicy: IfNotPresent  # Important for local images
+```
+
+### Shell Container Examples
+
+**Kubernetes Training:**
+```dockerfile
+FROM debian:bookworm
+RUN apt-get update && apt-get install -y curl ca-certificates && \
+    curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    chmod +x kubectl && mv kubectl /usr/local/bin/
+```
+
+**Python Development:**
+```dockerfile
+FROM python:3.11-slim
+RUN pip install flask pytest requests
+```
+
+**Network Tools:**
+```dockerfile
+FROM debian:bookworm
+RUN apt-get update && apt-get install -y \
+    net-tools iputils-ping dnsutils tcpdump nmap netcat-openbsd
+```
+
+**Cryptography (OpenSSL):**
+```dockerfile
+FROM debian:bookworm
+RUN apt-get update && apt-get install -y openssl xxd
+```
+
+## Configuration Reference
+
+### Scenario Configuration
+
+```yaml
+scenario:
+  name: "Tutorial Name"           # Required: Display name
+  description: "Description"      # Required: Short description
+  difficulty: beginner            # Optional: beginner/intermediate/advanced
+  estimatedTime: 30m              # Optional: Estimated completion time
+  steps: []                       # Required: List of steps
+```
+
+### Shell Configuration
+
+```yaml
+shell:
+  image:
+    repository: debian            # Container image
+    tag: bookworm                 # Image tag
+    pullPolicy: IfNotPresent      # Always/IfNotPresent/Never
+
+  command: ["sleep"]              # Override entrypoint
+  args: ["infinity"]              # Command arguments
+
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "500m"
+
+  securityContext:
+    capabilities:
+      drop: ["ALL"]
+      add: ["SETGID", "SETUID"]   # Add capabilities if needed
+    allowPrivilegeEscalation: false
+```
+
+### UI Configuration
+
+```yaml
+ui:
+  image:
+    repository: aydev/training-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+```
+
+### Storage Configuration
+
+```yaml
+persistence:
+  enabled: true                   # Enable persistent workspace
+  storageClass: ""                # Use default storage class
+  accessModes:
+    - ReadWriteOnce
+  size: "1Gi"                     # Workspace size
+  mountPath: "/workspace"         # Mount path in container
+```
+
+### Ingress Configuration
+
+```yaml
+ingress:
+  enabled: true
+  className: "nginx"              # Ingress class
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+  tls:
+    - secretName: training-tls
+      hosts:
+        - training.example.com
+```
+
+### Values Injected by Dploy
+
+When deployed via dploy API, these values are automatically injected:
+
+```yaml
+username: "john-doe"              # User's username
+uuid: "a1b2c3d4"                  # Unique environment ID
+ingressHost: "john-doe-a1b2c3d4.env.dploy.dev"
+```
+
+## UI Features
+
+### Multiple Terminal Tabs
+
+- Click `+` to open a new terminal tab
+- `Ctrl+Shift+T`: New tab
+- `Ctrl+Shift+W`: Close current tab
+- `Ctrl+Tab`: Next tab
+- Double-click tab to rename
+
+### Code Block Actions
+
+Hover over code blocks to see:
+- **Copy**: Copy code to clipboard
+- **Run**: Execute directly in the active terminal
+
+### Resizable Panels
+
+Drag the divider between instructions and terminal to resize.
 
 ## API Endpoints
 
@@ -154,6 +463,21 @@ podman push myrepo/training-ui:latest
 | `/api/steps/:n` | GET | Get step content |
 | `/api/steps/:n/check` | POST | Run verification |
 | `/api/health` | GET | Health check |
+| `/ws/terminal` | WebSocket | Terminal connection |
+
+## Example Scenarios
+
+### Git Basics (default)
+
+```bash
+helm install git-training ./training
+```
+
+### OpenSSL & AES Cryptography
+
+```bash
+helm install openssl-training ./training -f values-openssl-aes.yaml
+```
 
 ## Integration with Dploy
 
@@ -170,4 +494,59 @@ Add to your `environments.yaml`:
   maxPerUser: 1
 ```
 
-The dploy API automatically injects `username`, `uuid`, and `ingressHost` values.
+## Development
+
+### Building Images
+
+```bash
+# Build UI image
+docker build -f Containerfile.ui -t aydev/training-ui:latest .
+
+# Build scenario shell image
+docker build -f Containerfile.scenario -t aydev/training-shell:latest .
+```
+
+### Local Testing with Kind
+
+```bash
+# Load images
+kind load docker-image aydev/training-ui:latest --name my-cluster
+kind load docker-image aydev/training-shell:latest --name my-cluster
+
+# Install chart
+helm install test ./training -f values-openssl-aes.yaml
+
+# Port-forward
+kubectl port-forward svc/test-training 8080:8080
+```
+
+## Troubleshooting
+
+### Terminal not connecting
+
+Check that the shell pod is running:
+```bash
+kubectl get pods -l app.kubernetes.io/component=shell
+```
+
+### Check script not working
+
+Ensure the script is executable and uses proper shebang:
+```yaml
+check: |
+  #!/bin/bash
+  # Your script here
+```
+
+### Images not pulling (ImagePullBackOff)
+
+For local images in Kind:
+```yaml
+shell:
+  image:
+    pullPolicy: IfNotPresent  # Not "Always"
+```
+
+## License
+
+MIT

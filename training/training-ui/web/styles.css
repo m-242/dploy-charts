@@ -24,6 +24,7 @@ html, body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     background: var(--bg-primary);
     color: var(--text-primary);
+    overflow: hidden;
 }
 
 .container {
@@ -49,6 +50,8 @@ html, body {
 .terminal-panel {
     flex: 1;
     background: var(--bg-primary);
+    overflow: hidden;
+    min-width: 0;
 }
 
 /* Panel Header */
@@ -141,12 +144,63 @@ html, body {
     overflow-x: auto;
     margin-bottom: 1rem;
     border: 1px solid var(--border-color);
+    position: relative;
 }
 
 .panel-content pre code {
     background: none;
     padding: 0;
     color: var(--text-primary);
+}
+
+.code-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.panel-content pre:hover .code-actions {
+    opacity: 1;
+}
+
+.code-action-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.code-action-btn.copy {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+}
+
+.code-action-btn.copy:hover {
+    background: var(--text-muted);
+    color: var(--text-primary);
+}
+
+.code-action-btn.run {
+    background: var(--accent-success);
+    color: var(--bg-primary);
+}
+
+.code-action-btn.run:hover {
+    background: #b5e890;
+}
+
+.code-action-btn.copied {
+    background: var(--accent-success);
+    color: var(--bg-primary);
 }
 
 .panel-content blockquote {
@@ -260,7 +314,7 @@ html, body {
 
 /* Terminal */
 .terminal-header {
-    padding: 0.5rem 0.75rem;
+    padding: 0.5rem 0.75rem 0rem 0.75rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -312,10 +366,25 @@ html, body {
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+    cursor: default;
 }
 
 .terminal-tab.active .terminal-tab-title {
     color: var(--text-primary);
+}
+
+.terminal-tab-title-input {
+    font-size: 0.8rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-primary);
+    border-radius: 3px;
+    padding: 0 0.25rem;
+    width: 100%;
+    min-width: 60px;
+    outline: none;
 }
 
 .terminal-tab-status {
@@ -380,6 +449,8 @@ html, body {
     flex: 1;
     position: relative;
     background: var(--bg-primary);
+    overflow: hidden;
+    min-height: 0;
 }
 
 .terminal-instance {
@@ -390,6 +461,7 @@ html, body {
     bottom: 0;
     padding: 0.5rem;
     display: none;
+    overflow: hidden;
 }
 
 .terminal-instance.active {
@@ -399,6 +471,7 @@ html, body {
 .terminal-container {
     width: 100%;
     height: 100%;
+    overflow: hidden;
 }
 
 

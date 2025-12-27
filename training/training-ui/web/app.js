@@ -87,9 +87,17 @@ function createTerminalTab() {
 
     // Tab click handler
     tab.addEventListener('click', (e) => {
-        if (!e.target.classList.contains('terminal-tab-close')) {
-            switchToTerminal(id);
-        }
+        if (e.target.classList.contains('terminal-tab-close')) return;
+        if (e.target.classList.contains('terminal-tab-title-input')) return;
+        switchToTerminal(id);
+    });
+
+    // Double-click to rename
+    tab.addEventListener('dblclick', (e) => {
+        if (e.target.classList.contains('terminal-tab-close')) return;
+        if (e.target.classList.contains('terminal-tab-title-input')) return;
+        e.preventDefault();
+        startRenameTab(id);
     });
 
     // Close button handler
@@ -239,12 +247,67 @@ function switchToTerminal(id) {
         terminal.instance.classList.add('active');
         activeTerminalId = id;
 
-        // Fit and focus
+        // Fit and focus (only if not editing a tab name)
         setTimeout(() => {
             terminal.fitAddon.fit();
-            terminal.term.focus();
+            if (!document.querySelector('.terminal-tab-title-input')) {
+                terminal.term.focus();
+            }
         }, 10);
     }
+}
+
+function startRenameTab(id) {
+    const terminal = terminals.find(t => t.id === id);
+    if (!terminal) return;
+
+    const titleEl = terminal.tab.querySelector('.terminal-tab-title');
+
+    // Check if already editing
+    if (terminal.tab.querySelector('.terminal-tab-title-input')) return;
+
+    const currentName = titleEl.textContent;
+
+    // Create input element
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'terminal-tab-title-input';
+    input.value = currentName;
+
+    // Replace title with input
+    titleEl.style.display = 'none';
+    titleEl.parentNode.insertBefore(input, titleEl);
+    input.focus();
+    input.select();
+
+    let finished = false;
+
+    // Handle finish rename
+    const finishRename = (save) => {
+        if (finished) return;
+        finished = true;
+
+        if (save && input.value.trim()) {
+            titleEl.textContent = input.value.trim();
+        }
+        input.remove();
+        titleEl.style.display = '';
+    };
+
+    // Events
+    input.addEventListener('blur', () => finishRename(true));
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            finishRename(true);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            finishRename(false);
+        }
+        e.stopPropagation();
+    });
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('mousedown', (e) => e.stopPropagation());
 }
 
 function closeTerminal(id) {
@@ -415,9 +478,10 @@ async function loadStep(stepNumber) {
         const html = marked.parse(step.content);
         instructionsContent.innerHTML = html;
 
-        // Highlight code blocks
+        // Highlight code blocks and add action buttons
         instructionsContent.querySelectorAll('pre code').forEach((block) => {
             hljs.highlightElement(block);
+            addCodeActions(block.parentElement);
         });
 
         // Update navigation buttons
@@ -437,6 +501,64 @@ async function loadStep(stepNumber) {
             </div>
         `;
     }
+}
+
+function addCodeActions(preElement) {
+    const code = preElement.querySelector('code');
+    if (!code) return;
+
+    // Check if it's a bash/shell code block
+    const isBash = code.classList.contains('language-bash') ||
+                   code.classList.contains('language-shell') ||
+                   code.classList.contains('language-sh') ||
+                   !code.className.includes('language-');
+
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'code-actions';
+
+    // Copy button
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'code-action-btn copy';
+    copyBtn.textContent = 'Copy';
+    copyBtn.addEventListener('click', () => copyCode(code, copyBtn));
+    actionsDiv.appendChild(copyBtn);
+
+    // Run button (only for bash/shell)
+    if (isBash) {
+        const runBtn = document.createElement('button');
+        runBtn.className = 'code-action-btn run';
+        runBtn.textContent = 'Run';
+        runBtn.addEventListener('click', () => runCode(code));
+        actionsDiv.appendChild(runBtn);
+    }
+
+    preElement.appendChild(actionsDiv);
+}
+
+function copyCode(codeElement, button) {
+    const text = codeElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        button.classList.add('copied');
+        setTimeout(() => {
+            button.textContent = originalText;
+            button.classList.remove('copied');
+        }, 1500);
+    });
+}
+
+function runCode(codeElement) {
+    const activeTerminal = terminals.find(t => t.id === activeTerminalId);
+    if (!activeTerminal || !activeTerminal.ws || activeTerminal.ws.readyState !== WebSocket.OPEN) {
+        return;
+    }
+
+    const text = codeElement.textContent.trim();
+    // Send the command to the terminal
+    activeTerminal.ws.send(text + '\n');
+    // Focus the terminal
+    activeTerminal.term.focus();
 }
 
 function updateNavigationButtons(hasCheck) {
