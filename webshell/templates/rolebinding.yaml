@@ -1,4 +1,4 @@
-{{- if and .Values.rbac.create (eq .Values.tty2web.deploymentMode "deployment") -}}
+{{- if and .Values.rbac.create .Values.tty2web.enabled -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:

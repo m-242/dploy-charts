@@ -5,6 +5,32 @@ All notable changes to the webshell Helm chart will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-05-31
+
+### Added
+
+- `deploymentMode: sidecar` is now actually functional. Previously the chart
+  only switched the Service selector but never injected the tty2web
+  container into the StatefulSet, leaving the Service with zero endpoints.
+  The StatefulSet now conditionally adds the tty2web sidecar, mounts the
+  ServiceAccount token, and the Role/RoleBinding is created in this mode
+  too (tty2web still uses `kubectl exec` against the local pod, so it
+  needs the same RBAC as in `deployment` mode).
+
+### Security trade-off
+
+  Sidecar mode is **less isolated** than the default `deployment` mode:
+  - The `network: deny-all` NetworkPolicy is **not** applied to the
+    StatefulSet's pod in sidecar mode — tty2web needs egress to the
+    kube-apiserver to `exec`, and containers in a pod share the network
+    namespace, so the user's shell also has full network access.
+  - The ServiceAccount token is mounted on the pod, accessible to every
+    container in it (including the toolbox the user has a shell into).
+
+  Use `deployment` mode (default) for shells exposed to untrusted users
+  (CTF, public sandbox); use `sidecar` only for trusted internal use where
+  saving one pod per instance matters more than isolation.
+
 ## [1.1.1] - 2026-05-31
 
 ### Fixed

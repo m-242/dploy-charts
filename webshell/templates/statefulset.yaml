@@ -22,7 +22,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
+        {{- if ne .Values.tty2web.deploymentMode "sidecar" }}
+        # Sidecar mode runs tty2web in this pod and needs egress to kube-apiserver,
+        # so the deny-all network policy only applies in deployment mode.
         network: deny-all
+        {{- end }}
         {{- include "webshell.labels" . | nindent 8 }}
         app.kubernetes.io/component: container
         {{- with .Values.podLabels }}
@@ -34,7 +38,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       enableServiceLinks: false
-      automountServiceAccountToken: false
+      # Sidecar mode needs the SA token so the colocated tty2web can `kubectl exec`
+      # into this pod's `container` (the toolbox); deployment mode keeps it off.
+      automountServiceAccountToken: {{ eq .Values.tty2web.deploymentMode "sidecar" }}
       serviceAccountName: {{ include "webshell.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
@@ -64,6 +70,26 @@ spec:
             - name: data
               mountPath: {{ .Values.persistence.mountPath }}
           {{- end }}
+        {{- if and .Values.tty2web.enabled (eq .Values.tty2web.deploymentMode "sidecar") }}
+        # tty2web as a sidecar in the same pod as the toolbox. `kubectl exec`
+        # still goes through the API server (targets this pod's `container`),
+        # so RBAC + SA token are required; the rendered Role/RoleBinding
+        # below cover that.
+        - name: tty2web
+          securityContext:
+            {{- toYaml .Values.tty2web.securityContext | nindent 12 }}
+          image: "{{ .Values.tty2web.repository }}:{{ .Values.tty2web.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.tty2web.pullPolicy }}
+          command:
+            - tty2web
+          args: ["--verbose", "-w", "--port", "{{ .Values.tty2web.services.port }}", "kubectl", "exec", "{{ include "webshell.pod.name" . }}", "-it", "-c", "container", "--", "/bin/bash", "-l"]
+          ports:
+            - name: http
+              containerPort: {{ .Values.tty2web.services.port }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.tty2web.resources | nindent 12 }}
+        {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
