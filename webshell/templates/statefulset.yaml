@@ -14,7 +14,7 @@ spec:
     whenScaled: Retain
   selector:
     matchLabels:
-      {{- include "webshell.selectorLabels" . | nindent 6 }}
+      {{- include "webshell.container.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -24,6 +24,7 @@ spec:
       labels:
         network: deny-all
         {{- include "webshell.labels" . | nindent 8 }}
+        app.kubernetes.io/component: container
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
