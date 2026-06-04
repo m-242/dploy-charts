@@ -1,0 +1,148 @@
+# web-app — run a single-container web app as one pod.
+# See README.md for examples (flag injection, Kata, probes).
+
+replicaCount: 1
+
+image:
+  repository: ""        # e.g. zot.asso-hzv.fr/wargame/2026/bokanovsky
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []     # [ { name: regcred } ]
+nameOverride: ""
+fullnameOverride: ""
+
+# Optional container entrypoint / args override (leave empty to use the image's).
+command: []
+args: []
+
+# Environment variables. Use this to inject the challenge flag, e.g.
+#   env:
+#     FLAG: "leHACK{...}"
+env: {}
+
+# Pull env from existing Secrets / ConfigMaps.
+envFrom: []
+  # - secretRef:
+  #     name: my-secret
+
+# Port the app listens on inside the container.
+containerPort: 8080
+
+# RuntimeClass for the pod (e.g. kata-clh / kata-qemu). Empty = cluster default
+# runtime, in which case user namespaces do the confining.
+runtimeClassName: ""
+# false = user-namespace isolation (k8s >= 1.33). Set true under Kata — the VM
+# is the boundary — or on clusters without user namespaces.
+hostUsers: true
+
+podSecurityContext:
+  {}
+  # fsGroup: 1000
+  # seccompProfile:
+  #   type: RuntimeDefault
+
+# Container security context. Defaults are hardened; the app keeps no Linux
+# capabilities and cannot escalate privileges. Relax per-challenge if needed.
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  allowPrivilegeEscalation: false
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "1"
+    memory: "512Mi"
+
+# Health probes. type: tcp (default, works for any listener) or http (set path).
+# Set enabled: false to drop a probe. startup is disabled by default; enable it
+# for apps with a slow first boot to hold readiness without flapping liveness.
+probes:
+  startup:
+    enabled: false
+    type: tcp
+    path: /
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 60
+  liveness:
+    enabled: true
+    type: tcp
+    path: /
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    type: tcp
+    path: /
+    initialDelaySeconds: 3
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+serviceAccount:
+  create: false
+  automount: false
+  annotations: {}
+  name: ""
+
+# Optional durable volume. Most web challenges are stateless — leave disabled.
+persistence:
+  enabled: false
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  mountPath: /data
+  size: "1Gi"
+
+# Extra volumes / mounts (e.g. an emptyDir for /tmp under readOnlyRootFilesystem).
+extraVolumes: []
+extraVolumeMounts: []
+
+networkPolicy:
+  enabled: true
+  # CTF default: lock outbound traffic so a popped app cannot phone home or
+  # pivot. DNS is always allowed. Set true to permit all egress.
+  allowEgress: false
+  # Namespace (by metadata.name label) the ingress controller runs in; pods
+  # there are allowed to reach this app. Adjust to your ingress/gateway ns.
+  ingressNamespace: ingress-nginx
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts: []
+  tls: []
+
+# Gateway API HTTPRoute — alternative to Ingress for clusters using the
+# Gateway API. Routes "/" to the chart's service.
+httpRoute:
+  enabled: false
+  parentRefs: []
+  #   - name: my-gateway
+  #     namespace: default
+  hostnames: []
+  annotations: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Dploy-injected values (do not modify, set by dploy-api)
+# username: ""
+# uuid: ""
+# ingressHost: ""

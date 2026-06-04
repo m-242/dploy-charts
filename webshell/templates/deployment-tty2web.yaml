@@ -28,6 +28,9 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       serviceAccountName: {{ include "webshell.serviceAccountName" . }}
+      # tty2web reaches the shell pod via `kubectl exec`, so it needs the SA token
+      # mounted even though the ServiceAccount defaults to no automount.
+      automountServiceAccountToken: true
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:

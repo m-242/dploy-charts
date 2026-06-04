@@ -1,0 +1,19 @@
+apiVersion: v2
+name: web-app
+description: Run a single-container web app as one pod (mono-pod).
+maintainers:
+  - name: aydev
+    email: aydev@barbhack.fr
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.19.0-0"
+keywords:
+  - web
+  - ctf
+  - mono-pod
+  - sandbox
+  - kata
+home: https://github.com/aydev/dploy-charts
+sources:
+  - https://github.com/aydev/dploy-charts
