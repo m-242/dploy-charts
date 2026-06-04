@@ -1,0 +1,35 @@
+compose is bringing up your stack as a single sandboxed pod.
+
+  source:  {{ if eq .Values.source.type "git" }}git {{ .Values.source.git.repo }} @ {{ .Values.source.git.ref }}{{ else }}oci {{ .Values.source.oci.reference }}{{ end }}
+  sandbox: {{ .Values.runtimeClassName | default "cluster default runtime" }} (hostUsers={{ .Values.hostUsers }})
+
+Cold start (dockerd + `docker load` + `compose up`) can take a few minutes on
+first boot. The startup probe holds readiness until the entry port
+({{ .Values.service.port }}) answers.
+
+{{- if .Values.ingress.enabled }}
+
+Access the entry service at:
+  http{{ if .Values.ingress.tlsSecret }}s{{ end }}://{{ .Values.ingressHost | default .Values.ingress.host }}
+{{- else if contains "NodePort" .Values.service.type }}
+
+Get the URL with:
+  export NODE_PORT=$(kubectl get -n {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" svc {{ include "compose.fullname" . }})
+  export NODE_IP=$(kubectl get nodes -n {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo http://$NODE_IP:$NODE_PORT
+{{- else if contains "LoadBalancer" .Values.service.type }}
+
+Get the URL once the LoadBalancer IP is assigned:
+  kubectl get -n {{ .Release.Namespace }} svc -w {{ include "compose.fullname" . }}
+{{- else }}
+
+Reach the entry service with a port-forward:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "compose.fullname" . }} 8080:{{ .Values.service.port }}
+  # then open http://127.0.0.1:8080
+{{- end }}
+
+Only services that PUBLISH a port are reachable; everything else stays inside
+the pod's Docker network.
+{{- if not .Values.persistence.enabled }}
+Storage is ephemeral — set persistence.enabled=true for a durable workdir.
+{{- end }}

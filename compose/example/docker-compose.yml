@@ -1,0 +1,41 @@
+# Example stack for compose: Gitea behind a Caddy reverse proxy.
+#
+# Caddy is the only service that publishes a port (8080) and the only one on the
+# external-facing network. Gitea lives ONLY on an internal network with no
+# published port and no route to the outside world — it is reachable solely
+# through Caddy. This is the pattern compose is built for: one public entry,
+# everything else private to the stack.
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "8080:8080"          # the chart's entry port
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - gitea
+    networks:
+      - frontend             # carries the published port
+      - backend              # reaches gitea on the private network
+
+  gitea:
+    image: gitea/gitea:1.22
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__server__ROOT_URL=http://localhost:8080/
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__security__INSTALL_LOCK=true
+    volumes:
+      - gitea-data:/data
+    networks:
+      - backend              # private only: no published port, no egress
+
+networks:
+  frontend: {}
+  backend:
+    internal: true           # no route off the stack; gitea is sealed in here
+
+volumes:
+  gitea-data:

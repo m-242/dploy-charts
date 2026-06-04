@@ -1,0 +1,83 @@
+# compose — run an unmodified docker-compose.yml as one sandboxed DinD pod.
+# See README.md for how to build the OCI bundle / point at a git repo.
+
+# How the stack is delivered into the pod. The guiding rule: NO registry or git
+# credentials ever reach the sandbox (DinD/Kata). If the workload is compromised,
+# there are no creds to steal.
+source:
+  type: oci            # oci | git
+
+  # oci: a bundle IMAGE (not an oras artifact) mounted read-only as an
+  # ImageVolume. The kubelet pulls it using pullSecrets — those creds never enter
+  # the sandbox container. The image's filesystem holds:
+  #   docker-compose.yml (+ referenced files/dirs) and an images/ dir of
+  #   `docker save | gzip` tarballs. At boot the chart `docker load`s every
+  #   images/*.tar.gz (so DinD never pulls from a registry) and copies everything
+  #   else into the writable workdir.
+  oci:
+    reference: ""      # e.g. docker.io/ctfimages/gitea-compose:v1
+    pullPolicy: IfNotPresent
+    pullSecrets: []    # [ { name: regcred } ] — used by the kubelet, not mounted
+
+  # git: an init container clones the repo into the workdir. Credentials from
+  # credentialsSecret are mounted ONLY on that init container, never on DinD.
+  git:
+    repo: ""           # https://… or ssh://…
+    ref: main          # branch, tag, or commit SHA
+    subPath: ""        # optional sub-directory within the repo to use as the stack
+    image: alpine/git:2.45.2
+    # Secret with git credentials. https: keys `username` + `password` (or token
+    # as password). ssh: key `ssh-privatekey`. Empty for public repos.
+    credentialsSecret: ""
+
+# Sandbox: RuntimeClass to run the pod under (e.g. kata-qemu). Empty = the
+# cluster default runtime, in which case user namespaces do the confining.
+runtimeClassName: ""
+# false = user-namespace isolation (k8s >= 1.33). Set true under Kata — the VM
+# is the boundary — or on clusters without user namespaces.
+hostUsers: false
+
+# Service exposing the port a compose service PUBLISHES (left side of "8080:80").
+# Services in the stack that publish nothing stay internal to the pod.
+service:
+  type: ClusterIP
+  port: 8080
+
+# DinD image (the stack's own images are loaded from the bundle, not from here).
+image: docker:28-dind
+
+# One pod runs the whole stack — size for everything in it.
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: "1"
+    memory: 2Gi
+
+# Optional durable workdir (filesystem PVC). /var/lib/docker always stays an
+# emptyDir (overlay-on-overlay otherwise).
+persistence:
+  enabled: false
+  size: 10Gi
+  storageClass: ""
+
+# Optional Ingress. host is overridden by the dploy-injected ingressHost.
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tlsSecret: ""        # name of a TLS secret; empty = no TLS
+  annotations: {}
+
+# Optional Gateway API HTTPRoute (alternative to Ingress). Routes "/" to the service.
+httpRoute:
+  enabled: false
+  parentRefs: []       # required when enabled: [{ name: my-gateway }]
+  hostnames: []
+  annotations: {}
+
+# Dploy-injected values (set by dploy-api)
+# username: ""
+# uuid: ""
+# ingressHost: ""

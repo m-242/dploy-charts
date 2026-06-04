@@ -1,0 +1,111 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "compose.fullname" . }}-boot
+  labels:
+    {{- include "compose.labels" . | nindent 4 }}
+data:
+  # DinD boot entrypoint. For an OCI bundle (mounted read-only at /oci) it copies
+  # the stack files into the writable workdir and `docker load`s the bundled
+  # images, so the daemon never pulls from a registry. Then it runs compose up.
+  entrypoint.sh: |
+    #!/bin/sh
+    set -eu
+
+    WORKDIR="${COMPOSE_WORKDIR:-/workspace}"
+
+    # OCI source: copy the stack (everything except images/) into the workdir.
+    if [ -d /oci ]; then
+      echo "compose: copying stack from /oci to $WORKDIR"
+      for entry in /oci/* /oci/.[!.]*; do
+        [ -e "$entry" ] || continue
+        [ "$(basename "$entry")" = "images" ] && continue
+        cp -a "$entry" "$WORKDIR"/
+      done
+    fi
+
+    # Start the Docker daemon in the background (socket only, TLS disabled).
+    # dockerd logs stream to this container's stdout so failures are visible.
+    echo "compose: starting dockerd…"
+    dockerd-entrypoint.sh dockerd --host=unix:///var/run/docker.sock &
+
+    tries=0
+    until docker info >/dev/null 2>&1; do
+      tries=$((tries + 1))
+      if [ "$tries" -gt 60 ]; then
+        echo "compose: dockerd did not become ready in time" >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    echo "compose: dockerd is up"
+
+    # OCI source: preload images so the daemon NEVER pulls from a registry.
+    pull_flag=""
+    if [ -d /oci ]; then
+      pull_flag="--pull never"
+      if [ -d /oci/images ]; then
+        for f in /oci/images/*.tar.gz /oci/images/*.tgz /oci/images/*.tar; do
+          [ -f "$f" ] || continue
+          echo "compose: docker load $f"
+          docker load -i "$f"
+        done
+      fi
+    fi
+
+    cd "$WORKDIR"
+
+    # Probe for the compose file — name varies across projects.
+    compose_file=""
+    for f in docker-compose.yml docker-compose.yaml compose.yml compose.yaml; do
+      if [ -f "$f" ]; then
+        compose_file="$f"
+        break
+      fi
+    done
+    if [ -z "$compose_file" ]; then
+      echo "compose: no compose file found in $WORKDIR" >&2
+      ls -la >&2 || true
+      exit 1
+    fi
+    echo "compose: bringing up $compose_file"
+
+    exec docker compose -f "$compose_file" up $pull_flag
+
+  # git source: clone the repo into the workdir. Runs in the init container ONLY,
+  # which is the only place git credentials are mounted — they never reach DinD.
+  clone.sh: |
+    #!/bin/sh
+    set -eu
+
+    DEST=/workspace
+    echo "compose(git): cloning ${GIT_REPO} @ ${GIT_REF}"
+
+    if [ -f /git-creds/ssh-privatekey ]; then
+      mkdir -p /root/.ssh
+      cp /git-creds/ssh-privatekey /root/.ssh/id
+      chmod 600 /root/.ssh/id
+      export GIT_SSH_COMMAND="ssh -i /root/.ssh/id -o StrictHostKeyChecking=no"
+    elif [ -f /git-creds/password ]; then
+      user="$(cat /git-creds/username 2>/dev/null || echo x-access-token)"
+      pass="$(cat /git-creds/password)"
+      host="$(printf '%s' "$GIT_REPO" | sed -e 's#^https\?://##')"
+      printf 'https://%s:%s@%s\n' "$user" "$pass" "$host" > /root/.git-credentials
+      git config --global credential.helper store
+    fi
+
+    tmp="$(mktemp -d)"
+    # Try a shallow clone of the branch/tag; fall back to a full clone for a SHA.
+    if ! git clone --depth 1 --branch "$GIT_REF" "$GIT_REPO" "$tmp" 2>/dev/null; then
+      git clone "$GIT_REPO" "$tmp"
+      ( cd "$tmp" && git checkout "$GIT_REF" )
+    fi
+
+    src="$tmp"
+    [ -n "${GIT_SUBPATH:-}" ] && src="$tmp/$GIT_SUBPATH"
+
+    echo "compose(git): copying $src -> $DEST"
+    cp -a "$src"/. "$DEST"/
+    # Strip VCS metadata so nothing sensitive lands in the sandbox workdir.
+    rm -rf "$DEST/.git"
+    echo "compose(git): done"

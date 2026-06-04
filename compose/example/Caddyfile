@@ -1,0 +1,5 @@
+# Caddy listens on the published entry port and reverse-proxies every request
+# to Gitea, which is reachable only on the internal "private" network.
+:8080 {
+	reverse_proxy gitea:3000
+}

@@ -1,0 +1,19 @@
+{{- if .Values.persistence.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "compose.fullname" . }}
+  labels:
+    {{- include "compose.labels" . | nindent 4 }}
+spec:
+  # Filesystem only — user namespaces disallow raw block (volumeDevices).
+  volumeMode: Filesystem
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.size | quote }}
+{{- end }}

@@ -1,0 +1,8 @@
+# Bundle image for the `compose` chart (source.type: oci).
+# Its filesystem is mounted read-only as an ImageVolume. The chart copies
+# everything except images/ into the workdir and `docker load`s images/*.tar.gz,
+# so the in-pod daemon never pulls from a registry and no creds enter the sandbox.
+FROM scratch
+COPY docker-compose.yml /docker-compose.yml
+COPY Caddyfile /Caddyfile
+COPY images /images

@@ -1,0 +1,17 @@
+# Patterns to ignore when building packages.
+.DS_Store
+*.swp
+*.bak
+*.tmp
+*.orig
+*~
+.git
+.gitignore
+.project
+.idea/
+*.tmproj
+.vscode/
+
+# Example stack is documentation, not part of the chart package
+example/
+*.tar.gz

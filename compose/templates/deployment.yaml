@@ -1,0 +1,134 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "compose.fullname" . }}
+  labels:
+    {{- include "compose.labels" . | nindent 4 }}
+spec:
+  # One pod per stack. The stack is opaque to Kubernetes; never scale per-service.
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "compose.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        {{- include "compose.labels" . | nindent 8 }}
+      annotations:
+        checksum/boot: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.runtimeClassName }}
+      runtimeClassName: {{ . }}
+      {{- end }}
+      hostUsers: {{ .Values.hostUsers }}
+      {{- if and (eq .Values.source.type "oci") .Values.source.oci.pullSecrets }}
+      # Used by the kubelet to pull the bundle ImageVolume; never mounted in the pod.
+      imagePullSecrets:
+        {{- toYaml .Values.source.oci.pullSecrets | nindent 8 }}
+      {{- end }}
+      {{- if eq .Values.source.type "git" }}
+      initContainers:
+        # Clone the stack into the workdir. Git credentials are mounted ONLY here,
+        # so they never reach the DinD/Kata sandbox.
+        - name: clone-stack
+          image: {{ .Values.source.git.image | quote }}
+          command:
+            - /boot/clone.sh
+          env:
+            - name: GIT_REPO
+              value: {{ required "source.git.repo is required when source.type=git" .Values.source.git.repo | quote }}
+            - name: GIT_REF
+              value: {{ .Values.source.git.ref | quote }}
+            - name: GIT_SUBPATH
+              value: {{ .Values.source.git.subPath | quote }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: boot
+              mountPath: /boot
+            {{- if .Values.source.git.credentialsSecret }}
+            - name: git-creds
+              mountPath: /git-creds
+              readOnly: true
+            {{- end }}
+      {{- end }}
+      containers:
+        - name: dind
+          image: {{ .Values.image | quote }}
+          command:
+            - /boot/entrypoint.sh
+          env:
+            - name: DOCKER_TLS_CERTDIR
+              value: ""
+            - name: COMPOSE_WORKDIR
+              value: /workspace
+            {{- if .Values.username }}
+            - name: DPLOY_USERNAME
+              value: {{ .Values.username | quote }}
+            {{- end }}
+            {{- if .Values.uuid }}
+            - name: DPLOY_UUID
+              value: {{ .Values.uuid | quote }}
+            {{- end }}
+          ports:
+            - name: entry
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          # DinD requires privileged; safe only because the pod is confined by
+          # the RuntimeClass sandbox or user namespaces.
+          securityContext:
+            privileged: true
+          # Hold readiness through cold start (dockerd + `docker load` + `compose
+          # up`). Generous budget (~300s) for large bundles.
+          startupProbe:
+            tcpSocket:
+              port: entry
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            tcpSocket:
+              port: entry
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            # /var/lib/docker MUST be emptyDir — overlay-on-overlay otherwise.
+            - name: docker-graph
+              mountPath: /var/lib/docker
+            - name: boot
+              mountPath: /boot
+            {{- if eq .Values.source.type "oci" }}
+            # The stack bundle, read-only. No registry pull or creds in the sandbox.
+            - name: stack-oci
+              mountPath: /oci
+              readOnly: true
+            {{- end }}
+      volumes:
+        - name: workspace
+          {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "compose.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: docker-graph
+          emptyDir: {}
+        - name: boot
+          configMap:
+            name: {{ include "compose.fullname" . }}-boot
+            defaultMode: 0755
+        {{- if eq .Values.source.type "oci" }}
+        - name: stack-oci
+          image:
+            reference: {{ required "source.oci.reference is required when source.type=oci" .Values.source.oci.reference | quote }}
+            pullPolicy: {{ .Values.source.oci.pullPolicy }}
+        {{- end }}
+        {{- if and (eq .Values.source.type "git") .Values.source.git.credentialsSecret }}
+        - name: git-creds
+          secret:
+            secretName: {{ .Values.source.git.credentialsSecret }}
+        {{- end }}
