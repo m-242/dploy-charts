@@ -137,6 +137,14 @@ httpRoute:
   #     namespace: default
   hostnames: []
   annotations: {}
+  # Gateway API filters applied to the route rule, e.g. a ResponseHeaderModifier
+  # to normalize a backend's WebSocket Upgrade token casing.
+  filters: []
+  #   - type: ResponseHeaderModifier
+  #     responseHeaderModifier:
+  #       set:
+  #         - name: Upgrade
+  #           value: websocket
 
 nodeSelector: {}
 tolerations: []
