@@ -117,6 +117,31 @@ Leaving `runtimeClassName` empty uses the cluster's default runtime with user
 namespaces (`hostUsers: false`) — the privileged DinD still maps to an
 unprivileged host UID, with no node-side dependency.
 
+> **Kata + DinD needs virtiofs `--xattr`.** Under Kata, `/var/lib/docker` (the
+> `emptyDir`) is shared into the guest over **virtio-fs**, which by default
+> rejects the `security.capability` extended attribute that `docker load` sets on
+> files carrying file capabilities (e.g. the `caddy` binary). Image loading then
+> fails with `lsetxattr … operation not supported` and the pod crash-loops.
+>
+> **The chart fixes this for you:** whenever `runtimeClassName` is set it adds the
+> per-pod annotation
+> `io.katacontainers.config.hypervisor.virtio_fs_extra_args: '["--xattr"]'`, which
+> turns on xattr passthrough in that pod's virtiofsd — no node file to edit per
+> stack.
+>
+> The one cluster-side prerequisite: Kata must **permit** that annotation. Add
+> `virtio_fs_extra_args` to `enable_annotations` in the node's Kata config
+> (`configuration-qemu.toml`), once per node (no restart — Kata re-reads it per
+> pod launch; re-apply if `/opt/kata` is reinstalled):
+>
+> ```toml
+> enable_annotations = ["enable_iommu", "kernel_params", "kernel_verity_params", "virtio_fs_extra_args"]
+> ```
+>
+> Use **`kata-qemu`**, **not `kata-clh`**: Cloud Hypervisor cannot run a
+> `privileged` container — the DinD sandbox fails to start with
+> `failed to create shim task: EINVAL`.
+
 ## Expose it
 
 | Method | How |
@@ -165,3 +190,8 @@ helm template ./compose --set source.oci.reference=ghcr.io/x/y:v1
 - **`/var/lib/docker` is an `emptyDir`** — overlay-on-overlay otherwise.
 - **Persistence is filesystem-only** — user namespaces disallow raw block
   volumes.
+- **Under Kata, use `kata-qemu` and allow the virtiofs `--xattr` annotation** —
+  the chart sets the `virtio_fs_extra_args` annotation automatically, but Kata's
+  `enable_annotations` must list it, or `docker load` fails on
+  `security.capability` xattrs. `kata-clh` rejects privileged DinD (`EINVAL`).
+  See *Stronger isolation with Kata* above.

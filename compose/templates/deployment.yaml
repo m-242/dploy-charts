@@ -18,6 +18,13 @@ spec:
         {{- include "compose.labels" . | nindent 8 }}
       annotations:
         checksum/boot: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if .Values.runtimeClassName }}
+        # Kata: enable virtio-fs xattr passthrough so `docker load` can set the
+        # security.capability xattr (e.g. on the caddy binary) — without it image
+        # loading fails with "operation not supported". Honored only if the node's
+        # Kata config lists virtio_fs_extra_args in enable_annotations.
+        io.katacontainers.config.hypervisor.virtio_fs_extra_args: '["--xattr"]'
+        {{- end }}
     spec:
       {{- with .Values.runtimeClassName }}
       runtimeClassName: {{ . }}
