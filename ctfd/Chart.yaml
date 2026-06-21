@@ -6,7 +6,7 @@ description: |
   custom CTFd image rebuild required. Optionally bootstraps CTFd and wires the
   provider's credentials.
 type: application
-version: 0.1.0
+version: 0.1.2
 appVersion: "3.8.6"
 home: https://github.com/AYDEV-FR/ctfd-crossplane-provider
 sources:
