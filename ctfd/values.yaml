@@ -25,6 +25,20 @@ service:
   type: ClusterIP
   port: 8000
 
+# Expose CTFd via the Gateway API (HTTPRoute). Point parentRefs at your Gateway
+# and set hostnames; annotations flow through (e.g. external-dns target).
+httpRoute:
+  enabled: false
+  # parentRefs:
+  #   - name: public-gateway
+  #     namespace: default
+  hostnames: []
+  # - ctfd.example.com
+  annotations: {}
+  # external-dns.alpha.kubernetes.io/target: 203.0.113.10
+  # Optional per-rule Gateway API filters (header rewrite, redirect, ...).
+  filters: []
+
 # Persist CTFd's data dir (SQLite DB + uploads). Recommended for anything that
 # must survive a pod restart.
 persistence:

@@ -74,6 +74,25 @@ oidc:
 No `plugins`/`extraVolumes`/`env` wiring needed. Apps are provisioned at startup
 (`OIDC_PROVIDER_APPS_FILE`). See [`examples/oidc-values.yaml`](examples/oidc-values.yaml).
 
+## Exposure (Gateway API)
+
+Expose CTFd through a Gateway with `httpRoute`:
+
+```yaml
+httpRoute:
+  enabled: true
+  parentRefs:
+    - name: public-gateway
+      namespace: default
+  hostnames:
+    - ctfd.example.com
+  annotations:
+    external-dns.alpha.kubernetes.io/target: 203.0.113.10
+```
+
+The route forwards `/` to the CTFd Service on `service.port`. For an Ingress
+instead, expose the Service directly with your own Ingress resource.
+
 ## Provider integration (optional, full-auto)
 
 With `bootstrap.enabled` the chart runs the CTFd setup wizard in a Job and writes
@@ -91,6 +110,7 @@ provider-ctfd can manage the instance with **no manual step**. Both need the
 | `oidc.enabled` / `oidc.apps[]` | `false` / `[]` | Turnkey OIDC IdP plugin + provisioned OAuth apps. |
 | `extraVolumes[]` / `extraVolumeMounts[]` | `[]` | Standard extra volumes/mounts (config files, deps, …). |
 | `env[]` | `[]` | Extra env (DB/Redis/plugin config). |
+| `httpRoute.enabled` | `false` | Expose CTFd via a Gateway API `HTTPRoute`. |
 | `persistence.enabled` | `false` | PVC for CTFd's data dir. |
 | `bootstrap.enabled` | `false` | Auto-run setup + write the provider creds Secret. |
 | `providerConfig.enabled` | `false` | Create the Crossplane `(Cluster)ProviderConfig`. |
