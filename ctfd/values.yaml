@@ -23,7 +23,14 @@ secretKey: ""
 #     OIDC_PROVIDER_ISSUER: https://ctfd.example.com
 extraConfig: {}
 
-# Extra environment variables passed to the CTFd container, e.g. DATABASE_URL,
+# CTFd database URL. Leave empty to auto-derive: when persistence.enabled, the
+# chart points CTFd's SQLite DB at <persistence.mountPath>/ctfd.db so it lives on
+# the volume (CTFd's default CTFd/ctfd.db is on the ephemeral container fs and is
+# LOST on every restart). Set this for an external DB, e.g.
+#   databaseURL: mysql+pymysql://ctfd:ctfd@mysql/ctfd
+databaseURL: ""
+
+# Extra environment variables passed to the CTFd container, e.g.
 # REDIS_URL, REVERSE_PROXY, AUTHLIB_INSECURE_TRANSPORT, or plugin configuration.
 env: []
 # - name: DATABASE_URL

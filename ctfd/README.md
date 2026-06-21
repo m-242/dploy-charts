@@ -111,7 +111,8 @@ provider-ctfd can manage the instance with **no manual step**. Both need the
 | `extraVolumes[]` / `extraVolumeMounts[]` | `[]` | Standard extra volumes/mounts (config files, deps, …). |
 | `env[]` | `[]` | Extra env (DB/Redis/plugin config). |
 | `httpRoute.enabled` | `false` | Expose CTFd via a Gateway API `HTTPRoute`. |
-| `persistence.enabled` | `false` | PVC for CTFd's data dir. |
+| `persistence.enabled` | `false` | PVC for CTFd's data dir. When enabled, the DB is auto-pointed at the volume (see `databaseURL`). |
+| `databaseURL` | `""` | DB URL. Empty + persistence → `sqlite://<mountPath>/ctfd.db` (survives restarts); set for an external DB. |
 | `bootstrap.enabled` | `false` | Auto-run setup + write the provider creds Secret. |
 | `providerConfig.enabled` | `false` | Create the Crossplane `(Cluster)ProviderConfig`. |
 

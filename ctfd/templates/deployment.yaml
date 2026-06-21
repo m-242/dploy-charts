@@ -62,6 +62,20 @@ spec:
             - name: SECRET_KEY
               value: {{ . | quote }}
             {{- end }}
+            {{/*
+            CTFd's default SQLite DB lives at CTFd/ctfd.db on the container fs —
+            ephemeral, lost on every restart. When persistence is enabled, default
+            DATABASE_URL to a path INSIDE the mounted volume so the DB survives.
+            Override with .Values.databaseURL (e.g. an external mysql/postgres).
+            */}}
+            {{- $dbURL := .Values.databaseURL }}
+            {{- if and (not $dbURL) .Values.persistence.enabled }}
+            {{- $dbURL = printf "sqlite:///%s/ctfd.db" .Values.persistence.mountPath }}
+            {{- end }}
+            {{- with $dbURL }}
+            - name: DATABASE_URL
+              value: {{ . | quote }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
