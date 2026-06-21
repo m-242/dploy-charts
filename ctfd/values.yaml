@@ -15,8 +15,16 @@ workers: 1
 # restarts — set it, or enable persistence, for anything long-lived).
 secretKey: ""
 
+# Keys appended to CTFd's config.ini [extra] section, loaded into app.config and
+# readable via get_app_config(). Required for plugin settings that CTFd reads
+# that way (env vars are NOT loaded for arbitrary keys) — e.g. pinning the OIDC
+# IdP issuer behind a proxy:
+#   extraConfig:
+#     OIDC_PROVIDER_ISSUER: https://ctfd.example.com
+extraConfig: {}
+
 # Extra environment variables passed to the CTFd container, e.g. DATABASE_URL,
-# REDIS_URL, or plugin configuration (OAUTH_CLIENT_ID, ...).
+# REDIS_URL, REVERSE_PROXY, AUTHLIB_INSECURE_TRANSPORT, or plugin configuration.
 env: []
 # - name: DATABASE_URL
 #   value: mysql+pymysql://ctfd:ctfd@mysql/ctfd
