@@ -131,6 +131,14 @@ extraVolumeMounts: []
 #   readOnly: true
 
 podAnnotations: {}
+
+# Pod-level security context. The CTFd image runs as uid/gid 1001; fsGroup makes
+# a mounted persistence PVC group-writable so CTFd can create its data dir.
+podSecurityContext:
+  fsGroup: 1001
+# Container-level security context (applied to the CTFd container).
+securityContext: {}
+
 resources: {}
 nodeSelector: {}
 tolerations: []
