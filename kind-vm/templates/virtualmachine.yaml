@@ -5,40 +5,7 @@ metadata:
   labels:
     {{- include "kind-vm.labels" . | nindent 4 }}
 spec:
-  running: {{ .Values.vm.running }}
-  {{- if ne .Values.boot.mode "containerDisk" }}
-  # Root sur PVC : golden = import du containerDisk FCOS (snapshotable) ;
-  # dataVolumeClone = clone CoW d'un snapshot de la base golden.
-  dataVolumeTemplates:
-    - metadata:
-        name: {{ include "kind-vm.fullname" . }}-root
-      spec:
-        storage:
-          accessModes: ["ReadWriteOnce"]
-          {{- if eq .Values.boot.mode "golden" }}
-          storageClassName: {{ .Values.boot.golden.storageClass }}
-          resources:
-            requests:
-              storage: {{ .Values.boot.golden.size }}
-          {{- else }}
-          storageClassName: {{ .Values.boot.clone.storageClass }}
-          resources:
-            requests:
-              storage: {{ .Values.boot.clone.size }}
-          {{- end }}
-        source:
-          {{- if eq .Values.boot.mode "golden" }}
-          registry:
-            url: "docker://{{ .Values.image }}"
-            {{- with .Values.imagePullSecret }}
-            secretRef: {{ . }}
-            {{- end }}
-          {{- else }}
-          snapshot:
-            namespace: {{ .Release.Namespace }}
-            name: {{ .Values.boot.clone.snapshotName }}
-          {{- end }}
-  {{- end }}
+  runStrategy: RerunOnFailure
   template:
     metadata:
       labels:
@@ -69,23 +36,21 @@ spec:
               masquerade: {}
               ports:
                 - port: {{ .Values.port }}
+                {{- if .Values.debug.sshAuthorizedKey }}
+                - port: 22      # debug SSH (sinon masquerade ne forwarde que l'app)
+                {{- end }}
           rng: {}
       networks:
         - name: default
           pod: {}
       volumes:
         - name: rootdisk
-          {{- if eq .Values.boot.mode "containerDisk" }}
           containerDisk:
             image: {{ .Values.image | quote }}
             imagePullPolicy: {{ .Values.imagePullPolicy }}
             {{- with .Values.imagePullSecret }}
             imagePullSecret: {{ . }}
             {{- end }}
-          {{- else }}
-          dataVolume:
-            name: {{ include "kind-vm.fullname" . }}-root
-          {{- end }}
         - name: bundledisk
           containerDisk:
             image: {{ required "source.reference is required (the bundle containerDisk image)" .Values.source.reference | quote }}

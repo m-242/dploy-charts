@@ -34,25 +34,15 @@ KubeVirt (+ CDI pour golden/clone), **butane-operator**, et pour golden/clone un
 | `port` | port publié par l'app (hostPort du kind-config), forwardé/exposé |
 | `cpu` / `memory` | taille VM (kind 2 nœuds : ~2Gi) |
 | `httpRoute` / `ingress` | exposition (host = `ingressHost` dploy) |
-| `boot.mode` | `containerDisk` \| `golden` \| `dataVolumeClone` |
 
-## boot.mode & snapshot
+## Modèle d'instance
 
-| `boot.mode` | rôle | root disk |
-|---|---|---|
-| `containerDisk` (défaut) | instance autonome | FCOS éphémère + bundle |
-| `golden` | **la base**, 1 fois | PVC importé du containerDisk FCOS (snapshotable) + bundle |
-| `dataVolumeClone` | instance | clone CoW d'un snapshot de la base → cluster kind déjà monté |
-
-Workflow base → clones (même chart) :
-
-```sh
-helm install golden kind-vm --set boot.mode=golden --set source.reference=…   # 1) base
-helm upgrade golden kind-vm --set boot.mode=golden --set vm.running=false \
-  --set snapshot.enabled=true                                                  # 2) arrêt + snapshot
-helm install inst-x kind-vm --set boot.mode=dataVolumeClone \
-  --set boot.clone.snapshotName=kind-vm-golden-snapshot --set ingressHost=…    # 3) clones (dploy)
-```
+Chaque instance est **autonome** : elle boote depuis le bundle (immuable, buildé
+par la CI) et crée le cluster kind au boot (~1 min, airgap). Le bundle **EST**
+l'image golden — il n'y a volontairement **pas** de mécanique snapshot/clone de
+VM vivante (fragile : reprise d'un kind « gelé », orchestration multi-étapes).
+Si la latence à froid devenait un problème à grande échelle, on l'adresserait
+hors du chart, en KubeVirt-natif (`VirtualMachineSnapshot`/`VirtualMachineClone`).
 
 ## Bundle
 

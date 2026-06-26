@@ -1,4 +1,4 @@
-kind-vm "{{ include "kind-vm.fullname" . }}" déployé (boot.mode={{ .Values.boot.mode }}).
+kind-vm "{{ include "kind-vm.fullname" . }}" déployé.
 
 VM FCOS → Ignition → cluster kind (bundle: {{ .Values.source.reference | default "MANQUANT (source.reference requis)" }}).
 {{- if .Values.httpRoute.enabled }}

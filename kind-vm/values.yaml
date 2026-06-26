@@ -8,6 +8,10 @@
 # DinD-on-Kata). Same delivery rule as compose-vm: NO registry credentials ever
 # reach the guest — the kubelet pulls the OS + bundle containerDisks (creds via
 # imagePullSecret, at the pod level) and the guest only sees a read-only disk.
+#
+# Each instance is self-contained: it boots from the (immutable, CI-built) bundle
+# and creates the kind cluster at boot (~1 min, airgap). The bundle IS the golden
+# image — there is no live-VM snapshot/clone machinery (kept simple on purpose).
 
 # The challenge BUNDLE: a containerDisk (raw/ext4) holding the kind topology
 # (kind-config.yaml), the manifests to apply (manifests/ or manifests.yaml),
@@ -52,35 +56,10 @@ ingress:
   tlsSecret: ""
   annotations: {}
 
-# Boot / snapshot strategy (see README):
-#   containerDisk    instance autonome : root FCOS éphémère + bundle. Cluster créé au boot.
-#   golden           la "base" (1 fois) : root = PVC importé du containerDisk FCOS
-#                    (snapshotable) + bundle. Bootstrappe, puis on snapshote.
-#   dataVolumeClone  instance : root = clone CoW d'un snapshot de la base golden
-#                    (cluster kind déjà monté → boot quasi-instantané).
-boot:
-  mode: containerDisk
-  golden:
-    size: 16Gi
-    storageClass: longhorn
-  clone:
-    snapshotName: kind-vm-golden-snapshot
-    storageClass: longhorn
-    size: 16Gi
-
-# Helper VolumeSnapshot de la base golden (à activer une fois bootstrappée + arrêtée).
-snapshot:
-  enabled: false
-  name: kind-vm-golden-snapshot
-  sourcePVC: ""          # défaut: <release>-kind-vm-root
-  className: ""
-
-vm:
-  running: true
-
 # Debug : login du compte core (console / virtctl ssh). Vider en prod.
+# (sshAuthorizedKey ouvre aussi le port 22 sur la VM, sinon seul le port app est forwardé.)
 debug:
-  passwordHash: ""       # hash SHA-512 ($6$…) — ex. mot de passe console
+  passwordHash: ""       # hash SHA-512 ($6$…) — mot de passe console
   sshAuthorizedKey: ""
 
 # Fallback si le bundle ne fournit pas kind/kubectl ni l'image node.
