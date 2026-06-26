@@ -1,0 +1,77 @@
+# Butane → Ignition JSON (compilé par butane-operator → Secret <name>-ignition,
+# consommé par la VM via cloudInitConfigDrive). Config 100 % générique : le
+# contenu du challenge vient du bundle disk, pas d'ici.
+apiVersion: butane.operators.naval-group.com/v1alpha1
+kind: ButaneConfig
+metadata:
+  name: {{ include "kind-vm.fullname" . }}
+  labels:
+    {{- include "kind-vm.labels" . | nindent 4 }}
+spec:
+  config:
+    variant: fcos
+    version: 1.5.0
+    {{- if or .Values.debug.sshAuthorizedKey .Values.debug.passwordHash }}
+    passwd:
+      users:
+        - name: core
+          {{- with .Values.debug.passwordHash }}
+          password_hash: {{ . | quote }}
+          {{- end }}
+          {{- with .Values.debug.sshAuthorizedKey }}
+          ssh_authorized_keys:
+            - {{ . | quote }}
+          {{- end }}
+    {{- end }}
+    storage:
+      files:
+        - path: /etc/sysctl.d/99-kindvm-inotify.conf
+          mode: 0644
+          contents:
+            inline: |
+{{ .Files.Get "files/sysctl-inotify.conf" | indent 14 }}
+        - path: /etc/kindvm/kindvm.env
+          mode: 0644
+          contents:
+            inline: |
+              CLUSTER_NAME={{ .Values.cluster.name }}
+              NODE_IMAGE={{ .Values.versions.node }}
+              KIND_VERSION={{ .Values.versions.kind }}
+              KUBECTL_VERSION={{ .Values.versions.kubectl }}
+        # kind-config de secours si le bundle n'en fournit pas (1 nœud).
+        - path: /etc/kindvm/kind-config.yaml
+          mode: 0644
+          contents:
+            inline: |
+              kind: Cluster
+              apiVersion: kind.x-k8s.io/v1alpha4
+              name: {{ .Values.cluster.name }}
+              nodes:
+                - role: control-plane
+        - path: /usr/local/bin/kindvm-bootstrap
+          mode: 0755
+          contents:
+            inline: |
+{{ .Files.Get "files/bootstrap.sh" | indent 14 }}
+    systemd:
+      units:
+        # Monte le bundle (serial virtio "kindbundle") ro sur /var/opt/kindvm
+        # (chemin canonique ; /opt est un symlink sur FCOS). Avant le bootstrap.
+        - name: var-opt-kindvm.mount
+          enabled: true
+          contents: |
+            [Unit]
+            Description=kind-vm bundle (images + manifests + kind-config + bin)
+            DefaultDependencies=no
+            Before=local-fs.target
+            [Mount]
+            What=/dev/disk/by-id/virtio-kindbundle
+            Where=/var/opt/kindvm
+            Type=auto
+            Options=ro,nofail
+            [Install]
+            WantedBy=local-fs.target
+        - name: kindvm-bootstrap.service
+          enabled: true
+          contents: |
+{{ .Files.Get "files/kindvm-bootstrap.service" | indent 12 }}

@@ -1,0 +1,16 @@
+[Unit]
+Description=Bootstrap kind cluster inside the VM
+Wants=network-online.target
+After=network-online.target var-opt-kindvm.mount
+ConditionPathExists=!/var/lib/kindvm/.bootstrapped
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/kindvm/kindvm.env
+ExecStart=/usr/local/bin/kindvm-bootstrap
+ExecStartPost=/usr/bin/touch /var/lib/kindvm/.bootstrapped
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

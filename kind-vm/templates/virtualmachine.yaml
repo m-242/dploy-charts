@@ -1,0 +1,100 @@
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: {{ include "kind-vm.fullname" . }}
+  labels:
+    {{- include "kind-vm.labels" . | nindent 4 }}
+spec:
+  running: {{ .Values.vm.running }}
+  {{- if ne .Values.boot.mode "containerDisk" }}
+  # Root sur PVC : golden = import du containerDisk FCOS (snapshotable) ;
+  # dataVolumeClone = clone CoW d'un snapshot de la base golden.
+  dataVolumeTemplates:
+    - metadata:
+        name: {{ include "kind-vm.fullname" . }}-root
+      spec:
+        storage:
+          accessModes: ["ReadWriteOnce"]
+          {{- if eq .Values.boot.mode "golden" }}
+          storageClassName: {{ .Values.boot.golden.storageClass }}
+          resources:
+            requests:
+              storage: {{ .Values.boot.golden.size }}
+          {{- else }}
+          storageClassName: {{ .Values.boot.clone.storageClass }}
+          resources:
+            requests:
+              storage: {{ .Values.boot.clone.size }}
+          {{- end }}
+        source:
+          {{- if eq .Values.boot.mode "golden" }}
+          registry:
+            url: "docker://{{ .Values.image }}"
+            {{- with .Values.imagePullSecret }}
+            secretRef: {{ . }}
+            {{- end }}
+          {{- else }}
+          snapshot:
+            namespace: {{ .Release.Namespace }}
+            name: {{ .Values.boot.clone.snapshotName }}
+          {{- end }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "kind-vm.selectorLabels" . | nindent 8 }}
+        kubevirt.io/domain: {{ include "kind-vm.fullname" . }}
+    spec:
+      domain:
+        cpu:
+          cores: {{ .Values.cpu }}
+        memory:
+          guest: {{ .Values.memory }}
+        devices:
+          disks:
+            - name: rootdisk
+              disk:
+                bus: virtio
+            # Bundle du challenge (ro). Le kubelet le pulle (creds via
+            # imagePullSecret au niveau pod) ; le guest ne voit qu'un disque.
+            - name: bundledisk
+              serial: kindbundle
+              disk:
+                bus: virtio
+            - name: cloudinit
+              disk:
+                bus: virtio
+          interfaces:
+            - name: default
+              masquerade: {}
+              ports:
+                - port: {{ .Values.port }}
+          rng: {}
+      networks:
+        - name: default
+          pod: {}
+      volumes:
+        - name: rootdisk
+          {{- if eq .Values.boot.mode "containerDisk" }}
+          containerDisk:
+            image: {{ .Values.image | quote }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            {{- with .Values.imagePullSecret }}
+            imagePullSecret: {{ . }}
+            {{- end }}
+          {{- else }}
+          dataVolume:
+            name: {{ include "kind-vm.fullname" . }}-root
+          {{- end }}
+        - name: bundledisk
+          containerDisk:
+            image: {{ required "source.reference is required (the bundle containerDisk image)" .Values.source.reference | quote }}
+            imagePullPolicy: {{ .Values.imagePullPolicy }}
+            {{- with .Values.imagePullSecret }}
+            imagePullSecret: {{ . }}
+            {{- end }}
+        # Ignition compilé par butane-operator.
+        - name: cloudinit
+          cloudInitConfigDrive:
+            secretRef:
+              name: {{ include "kind-vm.fullname" . }}-ignition

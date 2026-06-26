@@ -1,0 +1,13 @@
+kind-vm "{{ include "kind-vm.fullname" . }}" déployé (boot.mode={{ .Values.boot.mode }}).
+
+VM FCOS → Ignition → cluster kind (bundle: {{ .Values.source.reference | default "MANQUANT (source.reference requis)" }}).
+{{- if .Values.httpRoute.enabled }}
+Exposé via HTTPRoute: {{ .Values.ingressHost | default (first .Values.httpRoute.hostnames) }}
+{{- else if .Values.ingress.enabled }}
+Exposé via Ingress: {{ .Values.ingressHost | default .Values.ingress.host }}
+{{- else }}
+Service interne {{ include "kind-vm.fullname" . }}:{{ .Values.service.port }} (pas d'exposition externe).
+{{- end }}
+
+Debug : virtctl console {{ include "kind-vm.fullname" . }}
+        (cluster sous root : sudo podman ps ; sudo KUBECONFIG=/root/.kube/config /var/opt/kindvm/bin/kubectl get nodes)

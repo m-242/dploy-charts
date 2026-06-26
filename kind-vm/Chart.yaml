@@ -1,0 +1,26 @@
+apiVersion: v2
+name: kind-vm
+description: Run a kind cluster inside a real KubeVirt VM (Fedora CoreOS + Ignition)
+
+maintainers:
+  - name: aydev
+    email: aydev@barbhack.fr
+
+type: application
+
+version: 0.1.0
+appVersion: "stable"
+
+kubeVersion: ">=1.19.0-0"
+
+keywords:
+  - kind
+  - kubernetes-in-kubernetes
+  - kubevirt
+  - vm
+  - fedora-coreos
+  - ignition
+
+home: https://github.com/AYDEV-FR/dploy-charts
+sources:
+  - https://github.com/AYDEV-FR/dploy-charts
