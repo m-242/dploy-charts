@@ -56,10 +56,16 @@ ingress:
   tlsSecret: ""
   annotations: {}
 
+# qemu-guest-agent : aide au debug (KubeVirt remonte l'IP/l'OS, active virtctl).
+# Absent de FCOS → installé via rpm-ostree --apply-live (sans reboot), best-effort.
+guestAgent:
+  enabled: true
+
 # Debug : login du compte core (console / virtctl ssh). Vider en prod.
 # (sshAuthorizedKey ouvre aussi le port 22 sur la VM, sinon seul le port app est forwardé.)
 debug:
-  passwordHash: ""       # hash SHA-512 ($6$…) — mot de passe console
+  # Mot de passe console par défaut = "kind" (compte core). Vider pour désactiver.
+  passwordHash: "$6$K7qGLVxyiHGiFjmc$DGtefnwUKkvHy4.gmwfqcQhafd4qSEx3E185sBKSQeHUYQsYEE8sMZNQ.BlDhArzXHH96yu/07khoiHbw9Y5u/"
   sshAuthorizedKey: ""
 
 # Fallback si le bundle ne fournit pas kind/kubectl ni l'image node.

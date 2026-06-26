@@ -55,6 +55,27 @@ spec:
 {{ .Files.Get "files/bootstrap.sh" | indent 14 }}
     systemd:
       units:
+        {{- if .Values.guestAgent.enabled }}
+        # qemu-guest-agent (debug) : absent de FCOS → rpm-ostree --apply-live
+        # (sans reboot), best-effort (préfixe '-'). KubeVirt remonte alors IP/OS.
+        - name: install-qemu-ga.service
+          enabled: true
+          contents: |
+            [Unit]
+            Description=Install and run qemu-guest-agent (debug)
+            Wants=network-online.target
+            After=network-online.target
+            ConditionPathExists=!/var/lib/kindvm/.qga-installed
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStartPre=/usr/bin/mkdir -p /var/lib/kindvm
+            ExecStart=-/usr/bin/rpm-ostree install --apply-live --idempotent qemu-guest-agent
+            ExecStartPost=-/usr/bin/systemctl enable --now qemu-guest-agent.service
+            ExecStartPost=/usr/bin/touch /var/lib/kindvm/.qga-installed
+            [Install]
+            WantedBy=multi-user.target
+        {{- end }}
         # Monte le bundle (serial virtio "kindbundle") ro sur /var/opt/kindvm
         # (chemin canonique ; /opt est un symlink sur FCOS). Avant le bootstrap.
         - name: var-opt-kindvm.mount
