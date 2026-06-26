@@ -22,7 +22,9 @@ source:
 
 # OS containerDisk (FCOS kubevirt stream → reads Ignition from the config-drive).
 image: quay.io/fedora/fedora-coreos-kubevirt:stable
-imagePullPolicy: IfNotPresent
+# Always : le bundle est typiquement taggé :latest (mutable) → sinon un nœud
+# garde un bundle périmé en cache (IfNotPresent). Layers OS cachés de toute façon.
+imagePullPolicy: Always
 imagePullSecret: ""      # dockerconfigjson Secret used by the KUBELET to pull OS + bundle
 
 # Port the in-cluster app publishes via kind extraPortMapping (the hostPort in the
