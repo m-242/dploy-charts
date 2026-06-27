@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: {{ include "web-app.fullname" . }}
   annotations:
-    {{- include "Values.service.extraAnnotations" . | nindent 4 }}
+    {{- toYaml .Values.service.extraAnnotations | nindent 4 }}
   labels:
     {{- include "web-app.labels" . | nindent 4 }}
 spec:
