@@ -63,21 +63,25 @@ Create the name of the service account to use
 
 {{/*
 Render a probe from its config dict (type tcp|http, plus timing fields).
-Usage: {{- include "web-app.probe" .Values.probes.liveness | nindent 12 }}
+Usage: {{- include "web-app.probe" (dict "probe" .Values.probes.liveness "ports" .Values.containerPorts) | nindent 12 }}
+The probe targets probe.port when set, else the first containerPort number
+(named ports like "http" break under Kata, which needs a numeric port).
 */}}
 {{- define "web-app.probe" -}}
-{{- if eq (.type | default "tcp") "http" -}}
+{{- $probe := .probe -}}
+{{- $port := $probe.port | default (first .ports).containerPort -}}
+{{- if eq ($probe.type | default "tcp") "http" -}}
 httpGet:
-  path: {{ .path | default "/" }}
-  port: http
+  path: {{ $probe.path | default "/" }}
+  port: {{ $port }}
 {{- else -}}
 tcpSocket:
-  port: http
+  port: {{ $port }}
 {{- end }}
-{{- with .initialDelaySeconds }}
+{{- with $probe.initialDelaySeconds }}
 initialDelaySeconds: {{ . }}
 {{- end }}
-periodSeconds: {{ .periodSeconds | default 10 }}
-timeoutSeconds: {{ .timeoutSeconds | default 3 }}
-failureThreshold: {{ .failureThreshold | default 3 }}
+periodSeconds: {{ $probe.periodSeconds | default 10 }}
+timeoutSeconds: {{ $probe.timeoutSeconds | default 3 }}
+failureThreshold: {{ $probe.failureThreshold | default 3 }}
 {{- end }}
